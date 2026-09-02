@@ -1,6 +1,9 @@
+import uuid
 from datetime import datetime, timezone
 
+import jwt as pyjwt
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,13 +21,21 @@ from app.security import (
     ACCESS_TOKEN_TTL,
     REFRESH_TOKEN_TTL,
     create_access_token,
+    decode_access_token,
     generate_refresh_token,
+    get_jwks,
     hash_password,
     hash_refresh_token,
     verify_password_or_dummy,
 )
 
 app = FastAPI(title="Auth Service")
+bearer_scheme = HTTPBearer()
+
+
+@app.get("/.well-known/jwks.json")
+def jwks() -> dict:
+    return get_jwks()
 
 
 @app.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -141,3 +152,26 @@ def logout(payload: LogoutRequest, db: Session = Depends(get_db)) -> None:
     if stored is not None and stored.revoked_at is None:
         stored.revoked_at = datetime.now(timezone.utc)
         db.commit()
+
+
+@app.get("/me", response_model=UserResponse)
+def me(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except pyjwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+        )
+
+    user = db.query(User).filter(User.id == uuid.UUID(payload["sub"])).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired access token",
+        )
+
+    return user

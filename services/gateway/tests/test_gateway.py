@@ -1,0 +1,70 @@
+def signup(client, email="gwuser@example.com", password="correcthorsebatterystaple"):
+    return client.post("/auth/signup", json={"email": email, "password": password})
+
+
+def login(client, email="gwuser@example.com", password="correcthorsebatterystaple"):
+    return client.post("/auth/login", json={"email": email, "password": password})
+
+
+def test_signup_is_public_and_proxies_through(client):
+    response = signup(client)
+    assert response.status_code == 201
+    assert response.json()["email"] == "gwuser@example.com"
+
+
+def test_login_is_public_and_proxies_through(client):
+    signup(client)
+    response = login(client)
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
+def test_me_without_token_rejected_at_gateway(client):
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+
+
+def test_me_with_garbage_token_rejected_at_gateway(client):
+    response = client.get("/auth/me", headers={"Authorization": "Bearer garbage"})
+    assert response.status_code == 401
+
+
+def test_me_with_valid_token_proxies_through(client):
+    signup_body = signup(client).json()
+    tokens = login(client).json()
+
+    response = client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == signup_body["id"]
+    assert response.json()["email"] == signup_body["email"]
+
+
+def test_path_not_in_public_set_requires_auth_even_if_it_starts_with_auth(client):
+    # /auth/signup/extra isn't a real Auth route, but it isn't in
+    # PUBLIC_PATHS either — it must be rejected for missing auth *before*
+    # ever being forwarded, not treated as public just because it shares
+    # the "/auth" prefix with a real public path.
+    response = client.post("/auth/signup/extra", json={})
+    assert response.status_code == 401
+
+
+def test_unknown_route_returns_404(client):
+    response = client.get("/items/whatever")
+    assert response.status_code == 404
+
+
+def test_logout_is_public_and_revokes_via_proxy(client):
+    signup(client)
+    tokens = login(client).json()
+
+    logout_response = client.post(
+        "/auth/logout", json={"refresh_token": tokens["refresh_token"]}
+    )
+    assert logout_response.status_code == 204
+
+    refresh_response = client.post(
+        "/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+    )
+    assert refresh_response.status_code == 401

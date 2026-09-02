@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import secrets
 import uuid
@@ -8,7 +9,9 @@ from pathlib import Path
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from dotenv import load_dotenv
+from jwt.algorithms import RSAAlgorithm
 
 # security.py is imported directly by some tests, and is not guaranteed to
 # be reached only after app.db (which also calls this). load_dotenv() is
@@ -39,6 +42,21 @@ with open(_SERVICE_ROOT / os.environ["JWT_PUBLIC_KEY_PATH"], "rb") as f:
 # Argon2id verification even when no matching user exists — see
 # verify_password_or_dummy below.
 DUMMY_PASSWORD_HASH = password_hasher.hash(secrets.token_urlsafe(32))
+
+# A static identifier for this key pair, published in the JWKS response
+# (Decision #29) so a verifier could one day tell multiple keys apart during
+# a rotation — irrelevant with only one key, but the field a real rotation
+# story would need already exists.
+KEY_ID = "auth-service-key-1"
+
+_jwk = json.loads(RSAAlgorithm.to_jwk(load_pem_public_key(_PUBLIC_KEY)))
+_jwk["alg"] = JWT_ALGORITHM
+_jwk["use"] = "sig"
+_jwk["kid"] = KEY_ID
+
+
+def get_jwks() -> dict:
+    return {"keys": [_jwk]}
 
 
 def hash_password(password: str) -> str:

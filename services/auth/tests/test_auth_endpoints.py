@@ -143,6 +143,51 @@ def test_logout_revokes_refresh_token(client):
     assert refresh_response.status_code == 401
 
 
+def test_jwks_endpoint_returns_public_key(client):
+    response = client.get("/.well-known/jwks.json")
+    assert response.status_code == 200
+    keys = response.json()["keys"]
+    assert len(keys) == 1
+    assert keys[0]["kty"] == "RSA"
+    assert keys[0]["alg"] == "RS256"
+    assert keys[0]["use"] == "sig"
+    assert "kid" in keys[0]
+
+
+def test_me_returns_current_user(client):
+    signup_body = signup(client).json()
+    tokens = login(client).json()
+
+    response = client.get(
+        "/me", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == signup_body["id"]
+    assert response.json()["email"] == signup_body["email"]
+
+
+def test_me_without_token_is_rejected(client):
+    response = client.get("/me")
+    assert response.status_code in (401, 403)
+
+
+def test_me_with_garbage_token_returns_401(client):
+    response = client.get("/me", headers={"Authorization": "Bearer not-a-real-jwt"})
+    assert response.status_code == 401
+
+
+def test_me_with_refresh_token_instead_of_access_token_returns_401(client):
+    # A refresh token is an opaque random string, not a JWT — /me must
+    # reject it rather than accidentally accepting the wrong credential type.
+    signup(client)
+    tokens = login(client).json()
+
+    response = client.get(
+        "/me", headers={"Authorization": f"Bearer {tokens['refresh_token']}"}
+    )
+    assert response.status_code == 401
+
+
 def test_logout_is_idempotent(client):
     signup(client)
     tokens = login(client).json()
