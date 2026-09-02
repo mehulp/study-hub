@@ -12,12 +12,15 @@ from jwt.algorithms import RSAAlgorithm
 load_dotenv()
 
 AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
+ITEMS_SERVICE_URL = os.environ["ITEMS_SERVICE_URL"]
 JWT_ALGORITHM = "RS256"
 
 # Routing table (Decision #31): one entry per backend service. Gateway's
-# code never changes to add a new backend — this table just grows.
+# code never changes to add a new backend — this table just grows. Items
+# is the first proof of that promise: no logic below changed to add it.
 ROUTES = [
     {"prefix": "/auth", "target": AUTH_SERVICE_URL},
+    {"prefix": "/items", "target": ITEMS_SERVICE_URL},
 ]
 
 # Secure by default: everything under a routed prefix requires a valid
@@ -94,7 +97,11 @@ async def proxy(full_path: str, request: Request) -> Response:
     if path not in PUBLIC_PATHS:
         _require_valid_token(request)
 
-    target_url = route["target"] + path[len(route["prefix"]):]
+    # `or "/"` matters: a request to exactly the routed prefix (e.g. just
+    # "/items", no trailing path) strips down to an empty remainder, which
+    # would forward as a bare host URL with no path at all — most backend
+    # routes (including Items' own "/") expect at least "/".
+    target_url = route["target"] + (path[len(route["prefix"]):] or "/")
     body = await request.body()
     forward_headers = {
         k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP_HEADERS

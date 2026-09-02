@@ -9,6 +9,69 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookmarks_hub -d bookmarks_hub"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth:
+    build: ./services/auth
+    ports:
+      - "8001:8001"
+    environment:
+      # Inside the Compose network, services reach Postgres by service name
+      # ("postgres"), not "localhost" — the .env used for manual/local runs
+      # is never copied into the image (see .dockerignore), so every var
+      # the app needs is set explicitly here instead.
+      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      JWT_PRIVATE_KEY_PATH: private_key.pem
+      JWT_PUBLIC_KEY_PATH: public_key.pem
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/.well-known/jwks.json')"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+  items:
+    build: ./services/items
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      # Service-to-service call inside the Compose network uses the
+      # service name "auth" — the same URL a human would use is
+      # localhost:8001, but that only resolves on the host, not from
+      # inside another container.
+      AUTH_SERVICE_URL: http://auth:8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/docs')"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+  gateway:
+    build: ./services/gateway
+    ports:
+      - "8000:8000"
+    environment:
+      AUTH_SERVICE_URL: http://auth:8001
+      ITEMS_SERVICE_URL: http://items:8002
+    depends_on:
+      auth:
+        condition: service_healthy
+      items:
+        condition: service_healthy
 
 volumes:
   postgres_data:

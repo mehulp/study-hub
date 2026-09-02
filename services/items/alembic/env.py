@@ -23,7 +23,7 @@ target_metadata = None
 # for the first migration's own CREATE SCHEMA to run, since Alembic tries to
 # ensure the version table exists first. Created here, ahead of everything
 # else, so a brand-new database needs no manual bootstrap step.
-VERSION_SCHEMA = "auth"
+VERSION_SCHEMA = "items"
 
 
 def run_migrations_offline() -> None:
