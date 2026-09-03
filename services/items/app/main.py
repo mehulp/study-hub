@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user_id, load_public_key
+from app.auth import IngestAuth, get_current_user_id, get_ingest_auth, load_public_key
 from app.db import get_db
 from app.models import Item
 from app.schemas import ItemIngestRequest, ItemResponse, Source
@@ -25,11 +25,26 @@ app = FastAPI(title="Items Service", lifespan=lifespan)
 @app.post("/")
 def ingest(
     payload: ItemIngestRequest,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    auth: IngestAuth = Depends(get_ingest_auth),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
+    if auth.is_service:
+        # A service token carries no user identity (Decision #41) — the
+        # caller must say who this item belongs to.
+        if payload.owner_user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="owner_user_id is required when authenticating as a service",
+            )
+        owner_user_id = payload.owner_user_id
+    else:
+        # A user token always ingests for itself — payload.owner_user_id,
+        # if somehow present, is ignored rather than trusted, so a user
+        # token can never be used to write into someone else's items.
+        owner_user_id = auth.user_id
+
     item = Item(
-        owner_user_id=user_id,
+        owner_user_id=owner_user_id,
         source=payload.source,
         external_id=payload.external_id,
         title=payload.title,
@@ -52,7 +67,7 @@ def ingest(
         existing = (
             db.query(Item)
             .filter(
-                Item.owner_user_id == user_id,
+                Item.owner_user_id == owner_user_id,
                 Item.source == payload.source,
                 Item.external_id == payload.external_id,
             )

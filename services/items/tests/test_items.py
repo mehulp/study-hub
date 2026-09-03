@@ -43,6 +43,60 @@ def test_ingest_duplicate_is_idempotent(client, auth_headers):
     assert first.json()["id"] == second.json()["id"]
 
 
+def test_ingest_via_service_token_requires_owner_user_id(client, service_headers):
+    response = client.post("/", json=ingest_payload(), headers=service_headers)
+    assert response.status_code == 400
+
+
+def test_ingest_via_service_token_with_owner_user_id(client, service_headers, auth_identity):
+    response = client.post(
+        "/",
+        json=ingest_payload(owner_user_id=auth_identity["user_id"]),
+        headers=service_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["owner_user_id"] == auth_identity["user_id"]
+
+
+def test_ingest_via_service_token_lands_in_owners_own_list(
+    client, service_headers, auth_headers, auth_identity
+):
+    client.post(
+        "/",
+        json=ingest_payload(external_id="via-connector", owner_user_id=auth_identity["user_id"]),
+        headers=service_headers,
+    )
+
+    response = client.get("/", headers=auth_headers)
+    assert response.status_code == 200
+    external_ids = {item["external_id"] for item in response.json()}
+    assert "via-connector" in external_ids
+
+
+def test_user_token_ingest_ignores_spoofed_owner_user_id(client, auth_headers, auth_identity):
+    other_user_id = str(uuid.uuid4())
+    response = client.post(
+        "/",
+        json=ingest_payload(external_id="spoof-attempt", owner_user_id=other_user_id),
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    assert response.json()["owner_user_id"] == auth_identity["user_id"]
+    assert response.json()["owner_user_id"] != other_user_id
+
+
+def test_service_token_rejected_by_list(client, service_headers):
+    response = client.get("/", headers=service_headers)
+    assert response.status_code == 401
+
+
+def test_service_token_rejected_by_get_item(client, service_headers):
+    response = client.get(
+        "/00000000-0000-0000-0000-000000000000", headers=service_headers
+    )
+    assert response.status_code == 401
+
+
 def test_ingest_same_external_id_different_source_is_distinct(client, auth_headers):
     chrome_item = client.post(
         "/", json=ingest_payload(source="chrome", external_id="shared-id"), headers=auth_headers

@@ -82,6 +82,30 @@ services:
       start_period: 10s
       retries: 10
 
+  connectors:
+    build: ./services/connectors
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      AUTH_SERVICE_URL: http://auth:8001
+      ITEMS_SERVICE_URL: http://items:8002
+      OAUTH_CLIENT_ID: connectors-service
+      OAUTH_CLIENT_SECRET: 42aWvybVgmjbyTR-vW23_Tcge2sJeYVdjam1vPJ6Iig
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      items:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/docs')"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
   gateway:
     build: ./services/gateway
     ports:
@@ -90,12 +114,15 @@ services:
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
       BOARD_SERVICE_URL: http://board:8003
+      CONNECTORS_SERVICE_URL: http://connectors:8004
     depends_on:
       auth:
         condition: service_healthy
       items:
         condition: service_healthy
       board:
+        condition: service_healthy
+      connectors:
         condition: service_healthy
 
 volumes:

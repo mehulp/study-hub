@@ -163,3 +163,69 @@ def test_board_create_and_add_item_proxy_through_gateway(client):
     view_response = client.get(f"/board/{board_id}", headers=headers)
     assert view_response.status_code == 200
     assert len(view_response.json()["items"]) == 1
+
+
+def test_connectors_create_connection_without_token_rejected_at_gateway(client):
+    # Fourth proof of Decision #31, alongside Auth/Items/Board.
+    response = client.post("/connectors/connections", json={"type": "browser_chrome"})
+    assert response.status_code == 401
+
+
+def test_connectors_create_connection_proxies_through_gateway(client):
+    signup(client)
+    tokens = login(client).json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    response = client.post(
+        "/connectors/connections", json={"type": "browser_chrome"}, headers=headers
+    )
+    assert response.status_code == 201
+    assert "push_token" in response.json()
+
+    list_response = client.get("/connectors/connections", headers=headers)
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+
+
+def test_connectors_sync_accepts_push_token_not_a_jwt(client):
+    # Regression test for a real bug: Gateway's coarse check always tried
+    # to JWT-decode the bearer token, so a legitimately-presented push
+    # token (an opaque string, never a JWT — Decision #42) was rejected
+    # with 401 before ever reaching Connectors, where the real check lives
+    # (see OPAQUE_CREDENTIAL_PATH_PATTERNS, Decision #45). An empty items
+    # list is enough to prove Gateway forwarded the request at all — it
+    # never needs Connectors to actually reach Items in this test.
+    signup(client)
+    tokens = login(client).json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    connection = client.post(
+        "/connectors/connections", json={"type": "browser_chrome"}, headers=headers
+    ).json()
+    push_headers = {"Authorization": f"Bearer {connection['push_token']}"}
+
+    response = client.post(
+        f"/connectors/connections/{connection['id']}/sync",
+        json={"items": []},
+        headers=push_headers,
+    )
+    assert response.status_code == 200
+    assert response.json() == {"results": []}
+
+
+def test_connectors_sync_without_any_token_still_rejected_at_connectors(client):
+    # Gateway skips its own check for this path pattern, but the endpoint
+    # must still not be wide open — Connectors' own auth has to reject a
+    # request with no credential at all.
+    signup(client)
+    tokens = login(client).json()
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    connection = client.post(
+        "/connectors/connections", json={"type": "browser_chrome"}, headers=headers
+    ).json()
+
+    response = client.post(
+        f"/connectors/connections/{connection['id']}/sync", json={"items": []}
+    )
+    assert response.status_code == 401

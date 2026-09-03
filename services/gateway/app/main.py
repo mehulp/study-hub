@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 
 import httpx
@@ -14,15 +15,20 @@ load_dotenv()
 AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
 ITEMS_SERVICE_URL = os.environ["ITEMS_SERVICE_URL"]
 BOARD_SERVICE_URL = os.environ["BOARD_SERVICE_URL"]
+CONNECTORS_SERVICE_URL = os.environ["CONNECTORS_SERVICE_URL"]
 JWT_ALGORITHM = "RS256"
 
 # Routing table (Decision #31): one entry per backend service. Gateway's
 # code never changes to add a new backend — this table just grows. Items
-# and Board are both proof of that promise: no logic below changed either time.
+# and Board are both proof of that promise: no logic below changed either
+# time. Connectors is the first exception — see
+# OPAQUE_CREDENTIAL_PATH_PATTERNS just below, a real gap the routing table
+# alone couldn't paper over.
 ROUTES = [
     {"prefix": "/auth", "target": AUTH_SERVICE_URL},
     {"prefix": "/items", "target": ITEMS_SERVICE_URL},
     {"prefix": "/board", "target": BOARD_SERVICE_URL},
+    {"prefix": "/connectors", "target": CONNECTORS_SERVICE_URL},
 ]
 
 # Secure by default: everything under a routed prefix requires a valid
@@ -36,6 +42,18 @@ PUBLIC_PATHS = {
     "/auth/refresh",
     "/auth/logout",
 }
+
+# Not public — these still require a real credential — but the credential
+# is an opaque, resource-scoped push token (Decision #42), never an
+# Auth-issued JWT. Gateway's own coarse check can only verify JWTs (it only
+# holds Auth's public key), so for these paths it can't do anything useful
+# and must not try: attempting to JWT-decode a push token always fails,
+# rejecting a legitimately authenticated request before it ever reaches
+# Connectors, which does the real check. Exact-string PUBLIC_PATHS can't
+# express this (the connection id is dynamic), hence a pattern instead.
+OPAQUE_CREDENTIAL_PATH_PATTERNS = [
+    re.compile(r"^/connectors/connections/[^/]+/sync$"),
+]
 
 # Hop-by-hop headers that must not be blindly forwarded either direction —
 # httpx recalculates framing (content-length, chunked transfer, gzip) on
@@ -100,7 +118,9 @@ async def proxy(full_path: str, request: Request) -> Response:
     path = "/" + full_path
     route = _match_route(path)
 
-    if path not in PUBLIC_PATHS:
+    if path not in PUBLIC_PATHS and not any(
+        pattern.match(path) for pattern in OPAQUE_CREDENTIAL_PATH_PATTERNS
+    ):
         _require_valid_token(request)
 
     # `or "/"` matters: a request to exactly the routed prefix (e.g. just

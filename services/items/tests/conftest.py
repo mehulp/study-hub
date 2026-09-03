@@ -132,6 +132,56 @@ def auth_headers(auth_identity):
     return {"Authorization": f"Bearer {auth_identity['access_token']}"}
 
 
+@pytest.fixture(scope="session")
+def service_identity(auth_service):
+    """Registers a real OAuth client against the real Auth subprocess (via
+    the same create_oauth_client.py script used in production, not a
+    shortcut) and fetches a real service token — Decision #41's
+    client-credentials flow, exercised for real rather than mocked."""
+    client_id = f"items-test-client-{uuid.uuid4()}"
+    env = os.environ.copy()
+    env["DATABASE_URL"] = TEST_DATABASE_URL
+
+    result = subprocess.run(
+        [str(_AUTH_VENV_PYTHON), "create_oauth_client.py", client_id, "Items Test Client"],
+        cwd=_AUTH_DIR,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    client_secret = next(
+        line.split(":", 1)[1].strip()
+        for line in result.stdout.splitlines()
+        if line.startswith("client_secret:")
+    )
+
+    token_response = httpx.post(
+        f"{AUTH_TEST_URL}/oauth/token",
+        json={"client_id": client_id, "client_secret": client_secret},
+    )
+    access_token = token_response.json()["access_token"]
+
+    yield {"client_id": client_id, "access_token": access_token}
+
+    subprocess.run(
+        [
+            "docker", "compose", "exec", "-T", "postgres",
+            "psql", "-U", "bookmarks_hub", "-d", "bookmarks_hub_test",
+            "-c", f"DELETE FROM auth.oauth_clients WHERE client_id = '{client_id}';",
+        ],
+        cwd=_ITEMS_DIR.parent.parent,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@pytest.fixture()
+def service_headers(service_identity):
+    return {"Authorization": f"Bearer {service_identity['access_token']}"}
+
+
 @pytest.fixture()
 def db_session():
     from app.db import engine

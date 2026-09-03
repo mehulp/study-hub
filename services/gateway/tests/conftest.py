@@ -16,6 +16,8 @@ _ITEMS_DIR = _GATEWAY_DIR.parent / "items"
 _ITEMS_VENV_PYTHON = _ITEMS_DIR / "venv" / "bin" / "python"
 _BOARD_DIR = _GATEWAY_DIR.parent / "board"
 _BOARD_VENV_PYTHON = _BOARD_DIR / "venv" / "bin" / "python"
+_CONNECTORS_DIR = _GATEWAY_DIR.parent / "connectors"
+_CONNECTORS_VENV_PYTHON = _CONNECTORS_DIR / "venv" / "bin" / "python"
 
 TEST_DATABASE_URL = (
     "postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password"
@@ -27,14 +29,17 @@ ITEMS_TEST_PORT = 8013
 ITEMS_TEST_URL = f"http://127.0.0.1:{ITEMS_TEST_PORT}"
 BOARD_TEST_PORT = 8018
 BOARD_TEST_URL = f"http://127.0.0.1:{BOARD_TEST_PORT}"
+CONNECTORS_TEST_PORT = 8021
+CONNECTORS_TEST_URL = f"http://127.0.0.1:{CONNECTORS_TEST_PORT}"
 
-# Gateway's app reads AUTH_SERVICE_URL/ITEMS_SERVICE_URL/BOARD_SERVICE_URL at
-# import time (main.py) and fetches the JWKS from Auth during its startup
-# lifespan, so these must be set, and the real subprocesses reachable,
-# before app.main is imported below.
+# Gateway's app reads all four *_SERVICE_URL vars at import time (main.py)
+# and fetches the JWKS from Auth during its startup lifespan, so these must
+# be set, and the real subprocesses reachable, before app.main is imported
+# below.
 os.environ["AUTH_SERVICE_URL"] = AUTH_TEST_URL
 os.environ["ITEMS_SERVICE_URL"] = ITEMS_TEST_URL
 os.environ["BOARD_SERVICE_URL"] = BOARD_TEST_URL
+os.environ["CONNECTORS_SERVICE_URL"] = CONNECTORS_TEST_URL
 
 
 def _wait_until_healthy(url: str, timeout: float = 15.0) -> None:
@@ -171,6 +176,51 @@ def board_service(auth_service, items_service):
         process.wait(timeout=10)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def connectors_service(auth_service, items_service):
+    """Runs the real Connectors service as a subprocess too — the fourth
+    proof of Decision #31's promise. Gateway's own tests only exercise
+    routing/auth-gating for /connectors/*, not a full sync flow (that's
+    Connectors' own test suite's job), so a placeholder OAuth client is
+    enough here — /oauth/token is only ever called lazily, during an actual
+    sync request, never at Connectors' own startup."""
+    env = os.environ.copy()
+    env["DATABASE_URL"] = TEST_DATABASE_URL
+    env["AUTH_SERVICE_URL"] = AUTH_TEST_URL
+    env["ITEMS_SERVICE_URL"] = ITEMS_TEST_URL
+    env["OAUTH_CLIENT_ID"] = "gateway-test-placeholder"
+    env["OAUTH_CLIENT_SECRET"] = "unused-in-these-tests"
+
+    subprocess.run(
+        [str(_CONNECTORS_VENV_PYTHON), "-m", "alembic", "upgrade", "head"],
+        cwd=_CONNECTORS_DIR,
+        env=env,
+        check=True,
+    )
+
+    process = subprocess.Popen(
+        [
+            str(_CONNECTORS_VENV_PYTHON),
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--port",
+            str(CONNECTORS_TEST_PORT),
+        ],
+        cwd=_CONNECTORS_DIR,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    try:
+        _wait_until_healthy(f"{CONNECTORS_TEST_URL}/docs")
+        yield
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+
+
 @pytest.fixture()
 def client():
     from app.main import app  # imported here, after AUTH_SERVICE_URL is set above
@@ -199,7 +249,7 @@ def _clean_auth_test_db():
             "-d",
             "bookmarks_hub_test",
             "-c",
-            "TRUNCATE auth.users, auth.refresh_tokens, items.items, board.boards, board.board_items CASCADE;",
+            "TRUNCATE auth.users, auth.refresh_tokens, items.items, board.boards, board.board_items, connectors.connections CASCADE;",
         ],
         cwd=_REPO_ROOT,
         check=True,

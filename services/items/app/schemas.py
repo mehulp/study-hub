@@ -17,6 +17,10 @@ class ItemIngestRequest(BaseModel):
     preview_media_url: str | None = None
     favicon_url: str | None = None
     saved_at: datetime
+    # Required only for service-authenticated ingest (Decision #41) — a
+    # service token carries no user identity to derive this from, unlike a
+    # user token, which ignores this field and always uses its own sub.
+    owner_user_id: uuid.UUID | None = None
 
 
 class ItemResponse(BaseModel):

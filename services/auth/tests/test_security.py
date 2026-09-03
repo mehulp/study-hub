@@ -8,10 +8,15 @@ from app.security import (
     JWT_ALGORITHM,
     _PRIVATE_KEY,
     create_access_token,
+    create_service_token,
     decode_access_token,
+    generate_client_secret,
     generate_refresh_token,
+    hash_client_secret,
     hash_password,
     hash_refresh_token,
+    verify_client_secret,
+    verify_client_secret_or_dummy,
     verify_password,
 )
 
@@ -87,3 +92,30 @@ def test_hash_refresh_token_is_deterministic_but_one_way():
     token = generate_refresh_token()
     assert hash_refresh_token(token) == hash_refresh_token(token)
     assert hash_refresh_token(token) != token
+
+
+def test_create_service_token_has_client_id_not_sub():
+    token = create_service_token("connectors-service")
+    payload = jwt.decode(token, options={"verify_signature": False})
+    assert payload["client_id"] == "connectors-service"
+    assert "sub" not in payload
+
+
+def test_generate_client_secret_is_unique_and_high_entropy():
+    secret_a = generate_client_secret()
+    secret_b = generate_client_secret()
+    assert secret_a != secret_b
+    assert len(secret_a) >= 32
+
+
+def test_verify_client_secret_roundtrip():
+    secret = generate_client_secret()
+    hashed = hash_client_secret(secret)
+    assert verify_client_secret(secret, hashed) is True
+    assert verify_client_secret("wrong-secret", hashed) is False
+
+
+def test_verify_client_secret_or_dummy_handles_missing_client():
+    # No stored hash (client_id not found) must still run a real
+    # comparison and fail closed, not error or short-circuit.
+    assert verify_client_secret_or_dummy("anything", None) is False

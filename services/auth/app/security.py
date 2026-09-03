@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -23,6 +24,7 @@ password_hasher = PasswordHasher()
 
 ACCESS_TOKEN_TTL = timedelta(minutes=15)
 REFRESH_TOKEN_TTL = timedelta(days=30)
+SERVICE_TOKEN_TTL = timedelta(hours=1)
 JWT_ALGORITHM = "RS256"
 
 # Resolved relative to this file (services/auth/), not the process's current
@@ -42,6 +44,11 @@ with open(_SERVICE_ROOT / os.environ["JWT_PUBLIC_KEY_PATH"], "rb") as f:
 # Argon2id verification even when no matching user exists — see
 # verify_password_or_dummy below.
 DUMMY_PASSWORD_HASH = password_hasher.hash(secrets.token_urlsafe(32))
+
+# Same anti-enumeration reasoning applied to /oauth/token — see
+# verify_client_secret_or_dummy below. (Inlined rather than calling
+# hash_client_secret(), which is defined further down this file.)
+DUMMY_CLIENT_SECRET_HASH = hashlib.sha256(secrets.token_urlsafe(32).encode()).hexdigest()
 
 # A static identifier for this key pair, published in the JWKS response
 # (Decision #29) so a verifier could one day tell multiple keys apart during
@@ -92,6 +99,46 @@ def create_access_token(user_id: uuid.UUID) -> str:
 
 def decode_access_token(token: str) -> dict:
     return jwt.decode(token, _PUBLIC_KEY, algorithms=[JWT_ALGORITHM])
+
+
+def create_service_token(client_id: str) -> str:
+    # No `sub` claim — a service token represents a client, not a user
+    # (Decision #41). Items branches on which claim is present to tell the
+    # two kinds of token apart.
+    now = datetime.now(timezone.utc)
+    payload = {
+        "client_id": client_id,
+        "iat": now,
+        "exp": now + SERVICE_TOKEN_TTL,
+    }
+    return jwt.encode(payload, _PRIVATE_KEY, algorithm=JWT_ALGORITHM)
+
+
+def generate_client_secret() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_client_secret(secret: str) -> str:
+    # SHA-256, not Argon2id — same reasoning as refresh/invite tokens: a
+    # client secret is system-generated with high entropy, not a
+    # human-chosen password, so the threat model is exact-match lookup,
+    # not offline brute-force guessing.
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+
+def verify_client_secret(secret: str, secret_hash: str) -> bool:
+    # Constant-time comparison — same reason /login avoids leaking timing
+    # info: a naive `==` on the hex digests would let an attacker narrow
+    # down matching characters by measuring comparison time.
+    return hmac.compare_digest(hash_client_secret(secret), secret_hash)
+
+
+def verify_client_secret_or_dummy(secret: str, secret_hash: str | None) -> bool:
+    # Same anti-enumeration pattern as verify_password_or_dummy — always
+    # runs the comparison, even when no client_id was found, so a caller
+    # can't distinguish "unknown client_id" from "known client_id, wrong
+    # secret" by any behavioral difference, timing included.
+    return verify_client_secret(secret, secret_hash or DUMMY_CLIENT_SECRET_HASH)
 
 
 def generate_refresh_token() -> str:

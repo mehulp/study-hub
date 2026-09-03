@@ -34,6 +34,7 @@ run_suite() {
 run_suite auth
 run_suite items
 run_suite board
+run_suite connectors
 run_suite gateway
 
 echo ""

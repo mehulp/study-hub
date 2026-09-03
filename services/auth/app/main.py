@@ -8,11 +8,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import RefreshToken, User
+from app.models import OAuthClient, RefreshToken, User
 from app.schemas import (
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
+    ServiceTokenRequest,
+    ServiceTokenResponse,
     SignupRequest,
     TokenResponse,
     UserResponse,
@@ -20,12 +22,15 @@ from app.schemas import (
 from app.security import (
     ACCESS_TOKEN_TTL,
     REFRESH_TOKEN_TTL,
+    SERVICE_TOKEN_TTL,
     create_access_token,
+    create_service_token,
     decode_access_token,
     generate_refresh_token,
     get_jwks,
     hash_password,
     hash_refresh_token,
+    verify_client_secret_or_dummy,
     verify_password_or_dummy,
 )
 
@@ -175,3 +180,26 @@ def me(
         )
 
     return user
+
+
+@app.post("/oauth/token", response_model=ServiceTokenResponse)
+def issue_service_token(
+    payload: ServiceTokenRequest, db: Session = Depends(get_db)
+) -> ServiceTokenResponse:
+    client = db.query(OAuthClient).filter(OAuthClient.client_id == payload.client_id).first()
+
+    # Same anti-enumeration reasoning as /login: always run the comparison,
+    # even when no client_id was found, and return the same generic error
+    # either way (Decision #41).
+    secret_valid = verify_client_secret_or_dummy(
+        payload.client_secret, client.client_secret_hash if client is not None else None
+    )
+    if client is None or not secret_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid client credentials"
+        )
+
+    access_token = create_service_token(client.client_id)
+    return ServiceTokenResponse(
+        access_token=access_token, expires_in=int(SERVICE_TOKEN_TTL.total_seconds())
+    )

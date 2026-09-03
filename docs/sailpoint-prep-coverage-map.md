@@ -23,7 +23,7 @@
 | 8 | Async & messaging (queues) | ⚠️ Gap → 📋 Plannable | Not built yet. Natural home: the deferred real-time sync/alerts backlog item — a queue between the browser extension's push and the Items service would be a genuine, non-forced use of this pattern. |
 | 9 | Reliability / fault tolerance / HA | ✅ Covered | Decision #11 again — timeout + graceful fallback is exactly the "judgment-level toolkit" this topic asks for. Circuit breaker named conceptually, not yet formalized in code. |
 | 10 | Numbers to know (latency/throughput) | N/A | Pure memorization — not something a small project generates organically. Just learn the numbers directly. |
-| 11 | Identity / IAM-specific | ✅ Strongest overlap | This is the deepest area of the whole project, and it's SailPoint's actual domain: real RBAC (Owner/Editor/Viewer), real OAuth2+PKCE (Twitter), OAuth2 client-credentials for service-to-service (Decision #12), our own session/JWT design (Decision #6), Zero Trust reasoning (Concepts Learned). |
+| 11 | Identity / IAM-specific | ✅ Strongest overlap | This is the deepest area of the whole project, and it's SailPoint's actual domain: real RBAC (Owner/Editor/Viewer), real OAuth2+PKCE (Twitter, still to build), OAuth2 client-credentials for service-to-service — named as design intent in Decision #12, actually built and running in Decision #41 (Auth issues short-lived service tokens to Connectors, Items verifies them independently and distinguishes them from user tokens), our own session/JWT design (Decision #6), Zero Trust reasoning (Concepts Learned). |
 
 ## C. Core Components — Technology Deep Dives
 

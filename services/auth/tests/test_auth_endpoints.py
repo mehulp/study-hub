@@ -154,6 +154,59 @@ def test_jwks_endpoint_returns_public_key(client):
     assert "kid" in keys[0]
 
 
+def register_test_client(db_session, client_id="test-client", secret="test-secret-123456"):
+    from app.models import OAuthClient
+    from app.security import hash_client_secret
+
+    db_session.add(
+        OAuthClient(
+            client_id=client_id,
+            client_secret_hash=hash_client_secret(secret),
+            client_name="Test Client",
+        )
+    )
+    db_session.commit()
+    return secret
+
+
+def test_oauth_token_success(client, db_session):
+    secret = register_test_client(db_session)
+    response = client.post(
+        "/oauth/token", json={"client_id": "test-client", "client_secret": secret}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "access_token" in body
+    assert body["token_type"] == "bearer"
+    assert "refresh_token" not in body
+
+
+def test_oauth_token_wrong_secret_rejected(client, db_session):
+    register_test_client(db_session)
+    response = client.post(
+        "/oauth/token", json={"client_id": "test-client", "client_secret": "wrong"}
+    )
+    assert response.status_code == 401
+
+
+def test_oauth_token_unknown_client_id_rejected(client, db_session):
+    response = client.post(
+        "/oauth/token", json={"client_id": "nonexistent", "client_secret": "whatever"}
+    )
+    assert response.status_code == 401
+
+
+def test_oauth_token_errors_do_not_distinguish_missing_client_from_wrong_secret(client, db_session):
+    register_test_client(db_session)
+    wrong_secret = client.post(
+        "/oauth/token", json={"client_id": "test-client", "client_secret": "wrong"}
+    )
+    no_such_client = client.post(
+        "/oauth/token", json={"client_id": "nonexistent", "client_secret": "whatever"}
+    )
+    assert wrong_secret.json() == no_such_client.json()
+
+
 def test_me_returns_current_user(client):
     signup_body = signup(client).json()
     tokens = login(client).json()

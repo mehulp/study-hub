@@ -35,3 +35,16 @@ class RefreshRequest(BaseModel):
 
 class LogoutRequest(BaseModel):
     refresh_token: str
+
+
+class ServiceTokenRequest(BaseModel):
+    client_id: str
+    client_secret: str
+
+
+class ServiceTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    # No refresh_token — a client secret is already a long-lived credential
+    # (Decision #41); the client just re-requests with the same secret.
