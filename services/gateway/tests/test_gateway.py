@@ -59,6 +59,18 @@ def test_unknown_route_returns_404(client):
     assert response.status_code == 404
 
 
+def test_path_sharing_a_prefix_without_boundary_returns_404_not_500(client):
+    # /itemsxyz starts with the "/items" prefix as a raw string, but isn't
+    # actually under that namespace — must not be misrouted (regression
+    # test for a real bug: plain startswith() matched this and produced a
+    # malformed target URL, crashing with a 500 instead of a clean 404).
+    response = client.get("/itemsxyz")
+    assert response.status_code == 404
+
+    response = client.get("/boardish")
+    assert response.status_code == 404
+
+
 def test_logout_is_public_and_revokes_via_proxy(client):
     signup(client)
     tokens = login(client).json()

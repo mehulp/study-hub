@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id, get_current_user_id_and_token, load_public_key
 from app.db import get_db
-from app.items_client import fetch_item
+from app.items_client import fetch_item, ItemsServiceError
 from app.models import AccessGrant, Board, BoardItem
 from app.schemas import (
     AddItemRequest,
@@ -120,7 +120,13 @@ async def add_item(
     # Fetched with the caller's own token — since only the owner reaches
     # this point, this is the owner's token, correctly scoped to their own
     # items in Items' eyes (Decision #37).
-    item = await fetch_item(payload.item_id, token)
+    try:
+        item = await fetch_item(payload.item_id, token)
+    except ItemsServiceError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Items service is unavailable — try again shortly",
+        )
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 

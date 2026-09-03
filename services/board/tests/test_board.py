@@ -65,6 +65,27 @@ def test_add_item_to_board(client, owner_headers, ingested_item):
     assert response.json()["title"] == ingested_item["title"]
 
 
+def test_add_item_returns_503_when_items_service_fails(
+    client, owner_headers, ingested_item, monkeypatch
+):
+    # Regression test: fetch_item raising ItemsServiceError (Items down,
+    # timed out, or erroring) used to propagate as an unhandled exception
+    # (a bare 500) instead of a coherent response.
+    import app.main as board_main
+    from app.items_client import ItemsServiceError
+
+    async def broken_fetch_item(item_id, bearer_token):
+        raise ItemsServiceError("simulated outage")
+
+    monkeypatch.setattr(board_main, "fetch_item", broken_fetch_item)
+
+    board = create_board(client, owner_headers).json()
+    response = client.post(
+        f"/{board['id']}/items", json={"item_id": ingested_item["id"]}, headers=owner_headers
+    )
+    assert response.status_code == 503
+
+
 def test_add_item_is_idempotent(client, owner_headers, ingested_item):
     board = create_board(client, owner_headers).json()
 

@@ -61,10 +61,14 @@ app = FastAPI(title="Gateway", lifespan=lifespan)
 
 
 def _match_route(path: str) -> dict:
-    route = next((r for r in ROUTES if path.startswith(r["prefix"])), None)
-    if route is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return route
+    # Boundary check matters: plain startswith() would let "/itemsxyz" match
+    # the "/items" prefix (same prefix, wrong path), producing a malformed
+    # target URL. The prefix must be the whole path or be followed by "/".
+    for route in ROUTES:
+        prefix = route["prefix"]
+        if path == prefix or path.startswith(prefix + "/"):
+            return route
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
 
 def _require_valid_token(request: Request) -> None:

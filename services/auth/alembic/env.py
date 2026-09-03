@@ -54,6 +54,46 @@ def run_migrations_online() -> None:
         connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {VERSION_SCHEMA}"))
         connection.commit()
 
+        # One-time self-heal for a database whose Auth history predates
+        # Decision #34 — previously tracked in the default, unscoped
+        # `public.alembic_version`. Without this, Alembic sees no history in
+        # `auth.alembic_version` and tries to re-run migration 0001 against
+        # tables that already exist, breaking `upgrade head` on every
+        # already-migrated database (only a truly fresh one self-heals
+        # without this step). Auth-specific: Items/Board were both created
+        # after this fix existed, so they never had a legacy unscoped table.
+        legacy_exists = connection.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'alembic_version')"
+            )
+        ).scalar()
+        new_exists = connection.execute(
+            text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                f"WHERE table_schema = '{VERSION_SCHEMA}' AND table_name = 'alembic_version')"
+            )
+        ).scalar()
+        if legacy_exists and not new_exists:
+            connection.execute(
+                text(
+                    f"CREATE TABLE {VERSION_SCHEMA}.alembic_version "
+                    "(LIKE public.alembic_version INCLUDING ALL)"
+                )
+            )
+            connection.execute(
+                text(f"INSERT INTO {VERSION_SCHEMA}.alembic_version SELECT * FROM public.alembic_version")
+            )
+            connection.execute(text("DROP TABLE public.alembic_version"))
+
+        # Required even when the `if` above didn't run: the two SELECTs
+        # above still implicitly opened a transaction on this connection
+        # (SQLAlchemy 2.0 "autobegin" behavior) that nothing else commits.
+        # Left open, it would silently roll back everything Alembic does
+        # next when the connection closes at the end of this function —
+        # a real bug this exact code hit and was caught on first test.
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
