@@ -2,6 +2,21 @@ def create_board(client, headers, name="Test Board"):
     return client.post("/", json={"name": name}, headers=headers)
 
 
+def invite_and_accept(client, owner_headers, other_headers, invited_email, board=None):
+    """Creates a board (unless given one), invites invited_email, and
+    accepts as the user behind other_headers. Returns (board, accept_response)."""
+    if board is None:
+        board = create_board(client, owner_headers).json()
+
+    invite = client.post(
+        f"/{board['id']}/invite", json={"invited_email": invited_email}, headers=owner_headers
+    )
+    token = invite.json()["invite_token"]
+
+    accept_response = client.post(f"/invites/{token}/accept", headers=other_headers)
+    return board, accept_response
+
+
 def test_create_board_without_token_rejected(client):
     response = client.post("/", json={"name": "x"})
     assert response.status_code == 401
@@ -151,3 +166,115 @@ def test_non_owner_cannot_remove_item(client, owner_headers, other_headers, inge
 
     response = client.delete(f"/{board['id']}/items/{ingested_item['id']}", headers=other_headers)
     assert response.status_code == 404
+
+
+def test_create_invite_without_token_rejected(client, owner_headers):
+    board = create_board(client, owner_headers).json()
+    response = client.post(f"/{board['id']}/invite", json={"invited_email": "x@example.com"})
+    assert response.status_code == 401
+
+
+def test_create_invite_by_non_owner_with_no_access_returns_404(client, owner_headers, other_headers):
+    board = create_board(client, owner_headers).json()
+    response = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "x@example.com"}, headers=other_headers
+    )
+    assert response.status_code == 404
+
+
+def test_create_invite_success(client, owner_headers):
+    board = create_board(client, owner_headers).json()
+    response = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "someone@example.com"}, headers=owner_headers
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["board_id"] == board["id"]
+    assert body["invited_email"] == "someone@example.com"
+    assert body["role"] == "viewer"
+    assert len(body["invite_token"]) >= 32
+
+
+def test_accept_invite_grants_viewer_access(client, owner_headers, other_headers, other_user):
+    board, accept_response = invite_and_accept(
+        client, owner_headers, other_headers, other_user["email"]
+    )
+    assert accept_response.status_code == 200
+    assert accept_response.json()["role"] == "viewer"
+    assert accept_response.json()["id"] == board["id"]
+
+
+def test_viewer_can_view_board_directly_after_accepting(client, owner_headers, other_headers, other_user):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+
+    response = client.get(f"/{board['id']}", headers=other_headers)
+    assert response.status_code == 200
+    assert response.json()["role"] == "viewer"
+
+
+def test_accept_invite_is_idempotent_for_same_user(client, owner_headers, other_headers, other_user):
+    board = create_board(client, owner_headers).json()
+    invite = client.post(
+        f"/{board['id']}/invite", json={"invited_email": other_user["email"]}, headers=owner_headers
+    )
+    token = invite.json()["invite_token"]
+
+    first = client.post(f"/invites/{token}/accept", headers=other_headers)
+    second = client.post(f"/invites/{token}/accept", headers=other_headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
+def test_accept_invite_rejected_for_different_user_once_claimed(
+    client, owner_headers, other_headers, other_user
+):
+    from tests.conftest import _create_real_user, _delete_user
+
+    board = create_board(client, owner_headers).json()
+    invite = client.post(
+        f"/{board['id']}/invite", json={"invited_email": other_user["email"]}, headers=owner_headers
+    )
+    token = invite.json()["invite_token"]
+
+    client.post(f"/invites/{token}/accept", headers=other_headers)
+
+    intruder = _create_real_user()
+    try:
+        intruder_headers = {"Authorization": f"Bearer {intruder['access_token']}"}
+        response = client.post(f"/invites/{token}/accept", headers=intruder_headers)
+        assert response.status_code == 404
+    finally:
+        _delete_user(intruder["user_id"])
+
+
+def test_accept_unknown_token_returns_404(client, other_headers):
+    response = client.post("/invites/not-a-real-token/accept", headers=other_headers)
+    assert response.status_code == 404
+
+
+def test_viewer_cannot_add_items(client, owner_headers, other_headers, other_user, ingested_item):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+
+    response = client.post(
+        f"/{board['id']}/items", json={"item_id": ingested_item["id"]}, headers=other_headers
+    )
+    assert response.status_code == 403
+
+
+def test_viewer_cannot_remove_items(client, owner_headers, other_headers, other_user, ingested_item):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+    client.post(
+        f"/{board['id']}/items", json={"item_id": ingested_item["id"]}, headers=owner_headers
+    )
+
+    response = client.delete(f"/{board['id']}/items/{ingested_item['id']}", headers=other_headers)
+    assert response.status_code == 403
+
+
+def test_viewer_cannot_invite_others(client, owner_headers, other_headers, other_user):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+
+    response = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "third@example.com"}, headers=other_headers
+    )
+    assert response.status_code == 403

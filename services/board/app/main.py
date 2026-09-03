@@ -1,5 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.encoders import jsonable_encoder
@@ -17,7 +18,10 @@ from app.schemas import (
     BoardResponse,
     BoardWithItemsResponse,
     CreateBoardRequest,
+    InviteRequest,
+    InviteResponse,
 )
+from app.security import generate_invite_token, hash_invite_token, INVITE_TOKEN_TTL
 
 
 @asynccontextmanager
@@ -72,14 +76,7 @@ def create_board(
     return board
 
 
-@app.get("/{board_id}", response_model=BoardWithItemsResponse)
-def get_board(
-    board_id: uuid.UUID,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-) -> BoardWithItemsResponse:
-    board, role = _get_board_with_role(board_id, user_id, db)
-
+def _board_with_items_response(board: Board, role: str, db: Session) -> BoardWithItemsResponse:
     items = (
         db.query(BoardItem)
         .filter(BoardItem.board_id == board.id)
@@ -94,6 +91,16 @@ def get_board(
         role=role,
         items=[BoardItemResponse.model_validate(i) for i in items],
     )
+
+
+@app.get("/{board_id}", response_model=BoardWithItemsResponse)
+def get_board(
+    board_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> BoardWithItemsResponse:
+    board, role = _get_board_with_role(board_id, user_id, db)
+    return _board_with_items_response(board, role, db)
 
 
 @app.post("/{board_id}/items")
@@ -168,3 +175,67 @@ def remove_item(
         BoardItem.board_id == board.id, BoardItem.item_id == item_id
     ).delete()
     db.commit()
+
+
+@app.post("/{board_id}/invite", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
+def create_invite(
+    board_id: uuid.UUID,
+    payload: InviteRequest,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> InviteResponse:
+    board, role = _get_board_with_role(board_id, user_id, db)
+    if role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only the board owner can invite"
+        )
+
+    token = generate_invite_token()
+    expires_at = datetime.now(timezone.utc) + INVITE_TOKEN_TTL
+    grant = AccessGrant(
+        board_id=board.id,
+        invited_email=payload.invited_email.lower(),
+        role="viewer",  # hardcoded — no role picker in v1 (Decision #10)
+        invite_token_hash=hash_invite_token(token),
+        invite_token_expires_at=expires_at,
+    )
+    db.add(grant)
+    db.commit()
+
+    return InviteResponse(
+        board_id=board.id,
+        invited_email=grant.invited_email,
+        role=grant.role,
+        invite_token=token,  # only ever visible unhashed, right here (Decision #36)
+        expires_at=expires_at,
+    )
+
+
+@app.post("/invites/{token}/accept", response_model=BoardWithItemsResponse)
+def accept_invite(
+    token: str,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> BoardWithItemsResponse:
+    token_hash = hash_invite_token(token)
+    grant = db.query(AccessGrant).filter(AccessGrant.invite_token_hash == token_hash).first()
+    now = datetime.now(timezone.utc)
+
+    if grant is None or grant.invite_token_expires_at < now:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found or expired")
+
+    if grant.user_id is not None and grant.user_id != user_id:
+        # Already claimed by someone else — token possession alone isn't
+        # enough once a grant is locked to its first accepter (Decision
+        # #39). Same 404 as "doesn't exist," not 403 — don't reveal that a
+        # valid invite exists to someone it was never claimed by.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found or expired")
+
+    if grant.user_id is None:
+        grant.user_id = user_id
+        grant.status = "accepted"
+        grant.accepted_at = now
+        db.commit()
+
+    board = db.query(Board).filter(Board.id == grant.board_id).first()
+    return _board_with_items_response(board, grant.role, db)

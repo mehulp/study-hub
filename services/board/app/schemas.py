@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class CreateBoardRequest(BaseModel):
@@ -40,3 +40,18 @@ class BoardWithItemsResponse(BaseModel):
     created_at: datetime
     role: str
     items: list[BoardItemResponse]
+
+
+class InviteRequest(BaseModel):
+    invited_email: EmailStr
+
+
+class InviteResponse(BaseModel):
+    board_id: uuid.UUID
+    invited_email: str
+    role: str
+    # The only time this is ever visible unhashed (Decision #36) — whatever
+    # hands this to the recipient (manual share, or a future mail
+    # integration, Decision #38) has to capture it right here.
+    invite_token: str
+    expires_at: datetime

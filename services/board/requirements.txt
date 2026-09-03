@@ -4,6 +4,6 @@ sqlalchemy
 alembic
 psycopg[binary]
 python-dotenv
-pydantic
+pydantic[email]
 pyjwt[crypto]
 httpx

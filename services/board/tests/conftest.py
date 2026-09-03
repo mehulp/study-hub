@@ -111,7 +111,7 @@ def _create_real_user() -> dict:
     login = httpx.post(f"{AUTH_TEST_URL}/login", json={"email": email, "password": password})
     access_token = login.json()["access_token"]
 
-    return {"user_id": user_id, "access_token": access_token}
+    return {"user_id": user_id, "access_token": access_token, "email": email}
 
 
 def _delete_user(user_id: str) -> None:
