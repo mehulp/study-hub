@@ -60,6 +60,28 @@ services:
       start_period: 10s
       retries: 10
 
+  board:
+    build: ./services/board
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      AUTH_SERVICE_URL: http://auth:8001
+      ITEMS_SERVICE_URL: http://items:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      items:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/docs')"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
   gateway:
     build: ./services/gateway
     ports:
@@ -67,10 +89,13 @@ services:
     environment:
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
+      BOARD_SERVICE_URL: http://board:8003
     depends_on:
       auth:
         condition: service_healthy
       items:
+        condition: service_healthy
+      board:
         condition: service_healthy
 
 volumes:

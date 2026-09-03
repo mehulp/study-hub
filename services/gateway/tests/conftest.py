@@ -14,6 +14,8 @@ _AUTH_DIR = _GATEWAY_DIR.parent / "auth"
 _AUTH_VENV_PYTHON = _AUTH_DIR / "venv" / "bin" / "python"
 _ITEMS_DIR = _GATEWAY_DIR.parent / "items"
 _ITEMS_VENV_PYTHON = _ITEMS_DIR / "venv" / "bin" / "python"
+_BOARD_DIR = _GATEWAY_DIR.parent / "board"
+_BOARD_VENV_PYTHON = _BOARD_DIR / "venv" / "bin" / "python"
 
 TEST_DATABASE_URL = (
     "postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password"
@@ -23,13 +25,16 @@ AUTH_TEST_PORT = 8011
 AUTH_TEST_URL = f"http://127.0.0.1:{AUTH_TEST_PORT}"
 ITEMS_TEST_PORT = 8013
 ITEMS_TEST_URL = f"http://127.0.0.1:{ITEMS_TEST_PORT}"
+BOARD_TEST_PORT = 8018
+BOARD_TEST_URL = f"http://127.0.0.1:{BOARD_TEST_PORT}"
 
-# Gateway's app reads AUTH_SERVICE_URL/ITEMS_SERVICE_URL at import time
-# (main.py) and fetches the JWKS from Auth during its startup lifespan, so
-# these must be set, and the real subprocesses reachable, before app.main
-# is imported below.
+# Gateway's app reads AUTH_SERVICE_URL/ITEMS_SERVICE_URL/BOARD_SERVICE_URL at
+# import time (main.py) and fetches the JWKS from Auth during its startup
+# lifespan, so these must be set, and the real subprocesses reachable,
+# before app.main is imported below.
 os.environ["AUTH_SERVICE_URL"] = AUTH_TEST_URL
 os.environ["ITEMS_SERVICE_URL"] = ITEMS_TEST_URL
+os.environ["BOARD_SERVICE_URL"] = BOARD_TEST_URL
 
 
 def _wait_until_healthy(url: str, timeout: float = 15.0) -> None:
@@ -126,6 +131,46 @@ def items_service(auth_service):
         process.wait(timeout=10)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def board_service(auth_service, items_service):
+    """Runs the real Board service as a subprocess too — the third proof
+    of Decision #31's promise, and Board's add-item path genuinely calls
+    Items (Decision #37), so both need to be real here, not stubs."""
+    env = os.environ.copy()
+    env["DATABASE_URL"] = TEST_DATABASE_URL
+    env["AUTH_SERVICE_URL"] = AUTH_TEST_URL
+    env["ITEMS_SERVICE_URL"] = ITEMS_TEST_URL
+
+    subprocess.run(
+        [str(_BOARD_VENV_PYTHON), "-m", "alembic", "upgrade", "head"],
+        cwd=_BOARD_DIR,
+        env=env,
+        check=True,
+    )
+
+    process = subprocess.Popen(
+        [
+            str(_BOARD_VENV_PYTHON),
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--port",
+            str(BOARD_TEST_PORT),
+        ],
+        cwd=_BOARD_DIR,
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    try:
+        _wait_until_healthy(f"{BOARD_TEST_URL}/docs")
+        yield
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+
+
 @pytest.fixture()
 def client():
     from app.main import app  # imported here, after AUTH_SERVICE_URL is set above
@@ -154,7 +199,7 @@ def _clean_auth_test_db():
             "-d",
             "bookmarks_hub_test",
             "-c",
-            "TRUNCATE auth.users, auth.refresh_tokens, items.items CASCADE;",
+            "TRUNCATE auth.users, auth.refresh_tokens, items.items, board.boards, board.board_items CASCADE;",
         ],
         cwd=_REPO_ROOT,
         check=True,

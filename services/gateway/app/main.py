@@ -13,14 +13,16 @@ load_dotenv()
 
 AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
 ITEMS_SERVICE_URL = os.environ["ITEMS_SERVICE_URL"]
+BOARD_SERVICE_URL = os.environ["BOARD_SERVICE_URL"]
 JWT_ALGORITHM = "RS256"
 
 # Routing table (Decision #31): one entry per backend service. Gateway's
 # code never changes to add a new backend — this table just grows. Items
-# is the first proof of that promise: no logic below changed to add it.
+# and Board are both proof of that promise: no logic below changed either time.
 ROUTES = [
     {"prefix": "/auth", "target": AUTH_SERVICE_URL},
     {"prefix": "/items", "target": ITEMS_SERVICE_URL},
+    {"prefix": "/board", "target": BOARD_SERVICE_URL},
 ]
 
 # Secure by default: everything under a routed prefix requires a valid
