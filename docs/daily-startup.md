@@ -168,8 +168,10 @@ from then on, which makes this largely unnecessary afterwards.
 shuts down, which would undo the shutdown and make compaction unsafe. The script refuses to run
 while an editor is open rather than risking a corrupted VHDX.
 
-Then reboot — that recreates `pagefile.sys` at its baseline size, typically recovering several GB
-that a day of Docker + WSL + browsers caused it to claim.
+Most of the recovery comes from `wsl --shutdown` itself: WSL2 and Docker each allocate a swap
+VHDX that is **deleted** when the distros stop — typically ~10 GB combined. Compaction adds little
+on top, and a reboot adds nothing: Windows sizes `pagefile.sys` from recent peak commit usage, so
+it rebuilds at the same size rather than shrinking. Reboot if you want to, but not for disk space.
 
 Related scripts on the Windows side:
 
