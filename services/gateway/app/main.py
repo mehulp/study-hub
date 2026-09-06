@@ -133,14 +133,34 @@ async def proxy(full_path: str, request: Request) -> Response:
         k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP_HEADERS
     }
 
-    async with httpx.AsyncClient() as client:
-        upstream_response = await client.request(
-            request.method,
-            target_url,
-            params=request.query_params,
-            content=body,
-            headers=forward_headers,
-            timeout=10.0,
+    try:
+        async with httpx.AsyncClient() as client:
+            upstream_response = await client.request(
+                request.method,
+                target_url,
+                params=request.query_params,
+                content=body,
+                headers=forward_headers,
+                # 30s, not the original 10s — a legitimately slow upstream
+                # call (e.g. a large batch sync) should get a real chance
+                # to finish rather than being cut off aggressively.
+                timeout=30.0,
+            )
+    except httpx.TimeoutException:
+        # Previously unhandled — any upstream timeout crashed through as
+        # Starlette's default plain-text 500 page, which a JSON-only client
+        # (like the browser extension) can't even parse into a readable
+        # error. Real bug, caught by an actual large sync through a real
+        # browser, not by any test — worth remembering that "no test caught
+        # it" doesn't mean "it can't happen."
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Upstream service took too long to respond",
+        )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Upstream service error: {exc}",
         )
 
     response_headers = {

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -18,6 +19,15 @@ from app.schemas import (
     SyncResponse,
 )
 from app.security import generate_push_token, hash_push_token, verify_push_token
+
+# A real, long-used browser can easily have hundreds of bookmarks. Processing
+# them one at a time — each a full network round trip to Items — made a
+# large sync take long enough to blow past Gateway's own upstream timeout,
+# which had no error handling and let the failure leak through as a raw
+# 500 page. Bounded concurrency fixes the root cause (slow batches), not
+# just the symptom; the bound itself avoids opening an unbounded number of
+# simultaneous connections to Items/Postgres for a very large collection.
+SYNC_CONCURRENCY_LIMIT = 10
 
 # Items only knows about the normalized source, not the connection-type
 # label Connectors/the schema use — "browser_chrome" is a distinct value
@@ -92,6 +102,29 @@ def get_connection_by_push_token(
     return connection
 
 
+async def _sync_one(semaphore: asyncio.Semaphore, owner_user_id: uuid.UUID, source: str, bookmark) -> dict:
+    item_payload = {
+        "source": source,
+        "external_id": bookmark.external_id,
+        "title": bookmark.title,
+        "url": bookmark.url,
+        "folder_path": bookmark.folder_path,
+        "favicon_url": bookmark.favicon_url,
+        "preview_text": bookmark.preview_text,
+        "preview_media_url": bookmark.preview_media_url,
+        "saved_at": bookmark.saved_at.isoformat(),
+    }
+    async with semaphore:
+        try:
+            status_code, _ = await ingest_item(owner_user_id, item_payload)
+        except ItemsServiceError as exc:
+            # One failure never blocks the rest of the batch (Decision #44).
+            return {"external_id": bookmark.external_id, "status": "error", "detail": str(exc)}
+
+    item_status = "created" if status_code == 201 else "already_exists"
+    return {"external_id": bookmark.external_id, "status": item_status}
+
+
 @app.post("/connections/{connection_id}/sync", response_model=SyncResponse)
 async def sync_connection(
     connection_id: uuid.UUID,
@@ -100,31 +133,11 @@ async def sync_connection(
     db: Session = Depends(get_db),
 ) -> SyncResponse:
     source = CONNECTION_TYPE_TO_SOURCE[connection.type]
-    results = []
+    semaphore = asyncio.Semaphore(SYNC_CONCURRENCY_LIMIT)
 
-    for bookmark in payload.items:
-        item_payload = {
-            "source": source,
-            "external_id": bookmark.external_id,
-            "title": bookmark.title,
-            "url": bookmark.url,
-            "folder_path": bookmark.folder_path,
-            "favicon_url": bookmark.favicon_url,
-            "preview_text": bookmark.preview_text,
-            "preview_media_url": bookmark.preview_media_url,
-            "saved_at": bookmark.saved_at.isoformat(),
-        }
-        try:
-            status_code, _ = await ingest_item(connection.owner_user_id, item_payload)
-        except ItemsServiceError as exc:
-            # One failure never blocks the rest of the batch (Decision #44).
-            results.append(
-                {"external_id": bookmark.external_id, "status": "error", "detail": str(exc)}
-            )
-            continue
-
-        item_status = "created" if status_code == 201 else "already_exists"
-        results.append({"external_id": bookmark.external_id, "status": item_status})
+    results = await asyncio.gather(
+        *(_sync_one(semaphore, connection.owner_user_id, source, bookmark) for bookmark in payload.items)
+    )
 
     connection.last_synced_at = datetime.now(timezone.utc)
     db.commit()

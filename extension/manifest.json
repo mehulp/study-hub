@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Bookmarks Hub Connector",
+  "version": "1.0.0",
+  "description": "Syncs your browser bookmarks to Bookmarks Hub.",
+  "permissions": ["bookmarks", "storage"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
+}

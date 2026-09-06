@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Bookmarks Hub Connector — Setup</title>
+  <style>
+    body { font-family: sans-serif; max-width: 420px; margin: 40px auto; }
+    label { display: block; margin-top: 12px; font-size: 14px; }
+    input { width: 100%; padding: 6px; margin-top: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 8px 16px; }
+    #status { margin-top: 16px; font-size: 14px; }
+    .error { color: #b00020; }
+    .success { color: #1a7f37; }
+  </style>
+</head>
+<body>
+  <h2>Connect this browser</h2>
+
+  <div id="already-connected" hidden>
+    <p class="success">This browser is already connected.</p>
+    <p>Connection ID: <code id="connection-id"></code></p>
+  </div>
+
+  <form id="setup-form">
+    <p>Log in once with your Bookmarks Hub account. Your login is used only
+       to create this connection — it is never stored.</p>
+    <label>Email <input type="email" id="email" required /></label>
+    <label>Password <input type="password" id="password" required /></label>
+    <button type="submit">Connect</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script src="shared.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
