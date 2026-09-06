@@ -79,15 +79,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Gateway", lifespan=lifespan)
 
-# The extension never needed this (host_permissions exempts it from CORS
-# entirely, Decision #46) — the web UI is a plain webpage on its own origin
-# (localhost:5173) and gets no such exemption, so Gateway must opt it in
-# explicitly. allow_credentials is off: the web UI sends its access token
-# as an Authorization header, not via cookies, so requests aren't
-# "credentialed" in the fetch/CORS sense.
+# The web UI is a plain webpage on its own origin (localhost:5173) and
+# needs an explicit allowlist entry. allow_credentials is off: the web UI
+# sends its access token as an Authorization header, not via cookies, so
+# requests aren't "credentialed" in the fetch/CORS sense.
+#
+# allow_origin_regex additionally covers the browser extension. Decision
+# #47 assumed host_permissions exempts extension calls from CORS entirely
+# (true in Chrome) — real testing in Firefox proved that wrong: Firefox
+# still sends a genuine preflight from the options page, with
+# Origin: moz-extension://<random-uuid>. That UUID is regenerated on every
+# reload of a temporary add-on, so it can't go in the exact-match allowlist
+# above — a regex matching any extension origin is the only stable fix.
+# Narrower than it looks: it only ever matches an *already-installed*
+# extension's own origin, never an arbitrary website.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_origin_regex=r"^(chrome|moz)-extension://.*$",
     allow_methods=["*"],
     allow_headers=["*"],
 )

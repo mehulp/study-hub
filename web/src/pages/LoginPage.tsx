@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export function LoginPage() {
@@ -9,6 +9,11 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // ProtectedRoute stashes where the user was headed (e.g. an invite link)
+  // before bouncing them here — send them back there instead of always to
+  // the dashboard, so a login round-trip doesn't lose their destination.
+  const from = (location.state as { from?: Location })?.from ?? "/";
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -16,7 +21,7 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      navigate("/");
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -52,7 +57,7 @@ export function LoginPage() {
       </form>
       {error && <p className="error">{error}</p>}
       <p>
-        No account? <Link to="/signup">Sign up</Link>
+        No account? <Link to="/signup" state={location.state}>Sign up</Link>
       </p>
     </div>
   );

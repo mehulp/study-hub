@@ -38,3 +38,225 @@ body {
 .error {
   color: #c0392b;
 }
+
+.empty-state {
+  color: #666;
+  font-style: italic;
+}
+
+.dashboard {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dashboard section {
+  margin-bottom: 32px;
+}
+
+/* Twitter tiles */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  position: relative;
+  display: block;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.tile a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.tile-checkbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.tile-media {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.tile-text {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Browser bookmarks folder tree */
+.browser-source {
+  margin-bottom: 16px;
+}
+
+.folder-node {
+  margin-left: 8px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  padding: 4px 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.folder-arrow {
+  width: 12px;
+  display: inline-block;
+}
+
+.folder-body {
+  margin-left: 18px;
+}
+
+.bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 14px;
+}
+
+.bookmark-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.favicon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.bookmark-title {
+  flex-shrink: 0;
+}
+
+.bookmark-url {
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selection / sharing */
+.share-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 20px;
+  width: 320px;
+}
+
+.dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.dialog input {
+  padding: 6px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.invite-token {
+  display: block;
+  word-break: break-all;
+  background: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+/* Board view (viewer/owner revisiting a shared board) */
+.board-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.board-item-row {
+  display: flex;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.board-item-media {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.board-item-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.board-item-preview {
+  margin: 2px 0;
+  font-size: 13px;
+  color: #555;
+}

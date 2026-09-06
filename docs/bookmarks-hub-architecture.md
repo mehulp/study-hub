@@ -53,6 +53,8 @@ flowchart TD
 
 ## Open Design Questions
 
+**Open: a browser profile, not a re-authenticated person, is what's actually trusted by both the extension and the web UI.** The extension's push token (Decision #42) and the web UI's session tokens (Decision #51) both live in that browser profile's local storage, tied to whoever set that connection up or logged in there once — not re-checked per use. Concretely: anyone who can open that same browser profile (any tab, no separate login) can click "Sync Now" and push bookmarks into whichever Bookmarks Hub account that profile's push token belongs to, or view an already-logged-in web session's dashboard directly, with no additional authentication either way. Surfaced from a real question about identity: it's easy to assume a browser's own Google/Gmail sign-in is what ties bookmarks to a Bookmarks Hub account, but the two are entirely unrelated — the extension reads whatever bookmarks locally exist in that profile regardless of Google sign-in state, and the only thing that actually ties a sync to *your* Bookmarks Hub account is the one-time login you did on the extension's options page. Currently an accepted trade-off for a single-user personal project (the same "no real other audience" reasoning behind Decision #8's one-time source setup) — worth revisiting with a device/session list plus revocation (partially already possible via refresh-token revocation, Decision #26), shorter-lived push tokens, or step-up re-authentication, if this project ever moves beyond one person on their own machine.
+
 *(Previously open: "Where should RBAC be enforced — gateway-level only, or also independently per service?" — resolved by Decision #30: both. Gateway does coarse validation, backend services independently re-verify the JWT for fine-grained checks.)*
 
 ## Concepts Learned (for interview articulation)
@@ -140,45 +142,69 @@ flowchart TD
 
 ## Web UI — Structure & Layers
 
-The web UI (`web/`, Decisions #49–52) is organized as three layers, each only trusting the one below it — see `how-it-works.md`'s Web UI section for the plain-English version of what each layer does. This section maps that same model onto the actual files.
+The web UI (`web/`, Decisions #49–52) is organized as three layers, each only trusting the one below it — see `how-it-works.md`'s Web UI section for the plain-English version of what each layer does. This section maps that same model onto the actual files, now covering all three build stages (auth/routing, sharing, receiving).
 
 ```mermaid
 flowchart TD
-    subgraph Pages ["Layer 3 — Pages & Routing"]
+    subgraph Pages ["Layer 3 — Pages, Routing & Components"]
         APP[App.tsx<br/>route tree]
-        PR[ProtectedRoute.tsx<br/>gatekeeper]
+        PR[ProtectedRoute.tsx<br/>gatekeeper, stashes return path]
         LP[LoginPage.tsx]
         SP[SignupPage.tsx]
-        DP[DashboardPage.tsx<br/>placeholder]
+        DP[DashboardPage.tsx<br/>fetches items, splits by source]
+        BP[BoardPage.tsx<br/>/board/:boardId]
+        IAP[InviteAcceptPage.tsx<br/>/invite/:token]
+        TT[TwitterTiles.tsx]
+        BB[BrowserBookmarks.tsx]
+        FT[FolderTree.tsx<br/>recursive]
+        BIL[BoardItemsList.tsx]
+        SB[ShareBar.tsx]
+        SD[ShareDialog.tsx]
     end
-    subgraph AuthLayer ["Layer 2 — Shared Auth State"]
-        AC[AuthContext.tsx<br/>isAuthenticated flag]
+    subgraph StateLayer ["Layer 2 — Shared State"]
+        AC[AuthContext.tsx<br/>isAuthenticated flag, global]
+        SC[SelectionContext.tsx<br/>selected item ids, dashboard-scoped]
     end
     subgraph APILayer ["Layer 1 — Talks to Gateway"]
-        AUTHAPI[api/auth.ts<br/>login, signup, logout calls]
+        AUTHAPI[api/auth.ts]
+        ITEMSAPI[api/items.ts]
+        BOARDAPI[api/board.ts]
         CLIENT[api/client.ts<br/>apiRequest: attaches token,<br/>refreshes + retries on 401,<br/>holds tokens in localStorage]
     end
     APP --> PR
-    APP --> LP
-    APP --> SP
-    PR --> DP
-    LP --> AC
-    SP --> AC
-    PR --> AC
+    PR --> DP & BP & IAP
+    DP --> TT & BB & SB
+    BB --> FT
+    BP --> BIL
+    SB --> SD
+    DP & TT & FT & SB --> SC
+    LP & SP & PR --> AC
+    SD --> BOARDAPI
+    IAP --> BOARDAPI
+    BP --> BOARDAPI
+    DP --> ITEMSAPI
     AC --> AUTHAPI
-    AUTHAPI --> CLIENT
+    AUTHAPI & ITEMSAPI & BOARDAPI --> CLIENT
     CLIENT -->|HTTP, Bearer token| GW[Gateway :8000]
 ```
 
 | Layer | File | Role |
 |---|---|---|
 | 1 — API | `src/api/client.ts` | The only place that calls `fetch`. Owns token storage (localStorage), attaches the access token to every request, and on a `401` does one refresh-and-retry before giving up. Also the module boundary where a failed refresh fires the `bookmarks_hub:logged_out` browser event that layer 2 listens for. |
-| 1 — API | `src/api/auth.ts` | Thin, specific calls built on `client.ts` — login, signup, `getCurrentUser`, logout. `logout()` best-effort revokes the refresh token server-side before clearing local state. |
+| 1 — API | `src/api/auth.ts`, `items.ts`, `board.ts` | Thin, specific calls built on `client.ts` — login/signup/logout; listing items; creating boards, adding items, inviting, accepting invites, fetching a board. |
 | — | `src/types/api.ts` | TypeScript interfaces mirroring the backend's Pydantic response schemas — no logic, just compile-time contract-checking (Decision #50). |
-| 2 — Auth state | `src/auth/AuthContext.tsx` | The single `isAuthenticated` flag every page reads, via React's Context API (Decision #51). Initializes from whatever's already in storage on page load; listens for the `bookmarks_hub:logged_out` event so a token-refresh failure anywhere in the app updates this flag. |
-| 3 — Pages/Routing | `src/App.tsx` | The route table: `/login`, `/signup` public; everything else nested under the gatekeeper. Wraps the whole tree in `AuthProvider` so `AuthContext` is reachable from any page. |
-| 3 — Pages/Routing | `src/components/ProtectedRoute.tsx` | The gatekeeper — checks `isAuthenticated`, redirects to `/login` if false, otherwise renders whichever protected page matched. |
-| 3 — Pages/Routing | `src/pages/LoginPage.tsx`, `SignupPage.tsx`, `DashboardPage.tsx` | The actual screens. `DashboardPage` is still a placeholder — real content (Items, sources) is the next build step. |
+| — | `src/lib/folderTree.ts`, `favicon.ts` | Pure helper functions, not state — turning a flat item list into a nested folder tree, and resolving a favicon from a bookmark's own URL when none was synced. |
+| 2 — Shared state | `src/auth/AuthContext.tsx` | The single `isAuthenticated` flag, global (wraps the whole route tree), via React's Context API (Decision #51). Initializes from whatever's already in storage; listens for `bookmarks_hub:logged_out`. |
+| 2 — Shared state | `src/dashboard/SelectionContext.tsx` | A second, page-scoped Context (only wraps the dashboard) tracking which item ids are checked for sharing — added specifically because `FolderTree` is recursive and several levels deep, where prop-drilling a toggle callback through every folder would be exactly what Context exists to avoid. |
+| 3 — Pages/Routing | `src/App.tsx` | The route table: `/login`, `/signup` public; `/`, `/board/:boardId`, `/invite/:token` all nested under the gatekeeper. |
+| 3 — Pages/Routing | `src/components/ProtectedRoute.tsx` | The gatekeeper — checks `isAuthenticated`; if false, redirects to `/login` carrying the current location in navigation state (`state={{from: location}}`) so `LoginPage`/`SignupPage` can send the user back afterward instead of always to the dashboard (Decision #55 fixed a gap in this: the cross-links *between* those two pages didn't forward that state). |
+| 3 — Pages | `src/pages/LoginPage.tsx`, `SignupPage.tsx` | Auth forms; navigate to the stashed return path on success, `/` by default. |
+| 3 — Pages | `src/pages/DashboardPage.tsx` | Fetches all items once, splits by source, renders `TwitterTiles` + `BrowserBookmarks` inside a `SelectionProvider`, with `ShareBar` for the selection-to-share flow. |
+| 3 — Pages | `src/pages/BoardPage.tsx` | `/board/:boardId` — fetches one board (with its denormalized item snapshot and the caller's `role`) and renders it via `BoardItemsList`. Revisitable, not just a one-time landing page. |
+| 3 — Pages | `src/pages/InviteAcceptPage.tsx` | `/invite/:token` — by the time this renders, `ProtectedRoute` has already guaranteed the visitor is logged in; its only job is call accept, then redirect straight to `/board/:id`. No manual "accept" step, per Journey 4. |
+| 3 — Components | `TwitterTiles.tsx`, `BrowserBookmarks.tsx`, `FolderTree.tsx` | Dashboard rendering — `FolderTree` renders itself recursively, one call per folder-nesting level, each with its own independent collapsed/expanded state. |
+| 3 — Components | `BoardItemsList.tsx` | Board's flat item list — no tile/folder split, since Board's denormalized snapshot never stores source or folder_path (Decision #37). |
+| 3 — Components | `ShareBar.tsx`, `ShareDialog.tsx` | Selection summary + select-all/clear, and the create-board → add-items → create-invite flow, surfacing the resulting link directly (no real email-sending exists yet). |
 
 **Directory layout, same information as a picture:**
 
@@ -186,26 +212,45 @@ flowchart TD
 web/
 ├─ src/
 │  ├─ types/
-│  │  └─ api.ts              # backend response shapes, mirrored
+│  │  └─ api.ts               # backend response shapes, mirrored
+│  ├─ lib/
+│  │  ├─ folderTree.ts        # flat items -> nested folder tree
+│  │  └─ favicon.ts           # resolve a favicon from a bookmark's URL
 │  ├─ api/
-│  │  ├─ client.ts           # Layer 1 — fetch, token storage, refresh+retry
-│  │  └─ auth.ts             # Layer 1 — login/signup/getCurrentUser/logout
+│  │  ├─ client.ts            # Layer 1 — fetch, token storage, refresh+retry
+│  │  ├─ auth.ts              # Layer 1 — login/signup/getCurrentUser/logout
+│  │  ├─ items.ts             # Layer 1 — list items
+│  │  └─ board.ts             # Layer 1 — create/get board, add item, invite, accept
 │  ├─ auth/
-│  │  └─ AuthContext.tsx     # Layer 2 — shared isAuthenticated flag
+│  │  └─ AuthContext.tsx      # Layer 2 — shared isAuthenticated flag (global)
+│  ├─ dashboard/
+│  │  ├─ SelectionContext.tsx # Layer 2 — selected item ids (dashboard-scoped)
+│  │  ├─ ShareBar.tsx         # Layer 3 — selection summary + share trigger
+│  │  └─ ShareDialog.tsx      # Layer 3 — create board -> add items -> invite
 │  ├─ components/
-│  │  └─ ProtectedRoute.tsx  # Layer 3 — gatekeeper (redirect if not logged in)
+│  │  ├─ ProtectedRoute.tsx   # Layer 3 — gatekeeper, stashes return path
+│  │  ├─ TwitterTiles.tsx     # Layer 3 — flat tile grid
+│  │  ├─ BrowserBookmarks.tsx # Layer 3 — per-source folder trees
+│  │  ├─ FolderTree.tsx       # Layer 3 — recursive folder rendering
+│  │  └─ BoardItemsList.tsx   # Layer 3 — flat board item list
 │  ├─ pages/
-│  │  ├─ LoginPage.tsx       # Layer 3
-│  │  ├─ SignupPage.tsx      # Layer 3
-│  │  └─ DashboardPage.tsx   # Layer 3 — placeholder
-│  ├─ App.tsx                # Layer 3 — route tree, wraps AuthProvider
-│  ├─ main.tsx                # entry point, mounts <App />
-│  └─ index.css                # shared styling
+│  │  ├─ LoginPage.tsx        # Layer 3
+│  │  ├─ SignupPage.tsx       # Layer 3
+│  │  ├─ DashboardPage.tsx    # Layer 3 — real content: items + sharing
+│  │  ├─ BoardPage.tsx        # Layer 3 — /board/:boardId
+│  │  └─ InviteAcceptPage.tsx # Layer 3 — /invite/:token
+│  ├─ App.tsx                 # Layer 3 — route tree, wraps AuthProvider
+│  ├─ main.tsx                 # entry point, mounts <App />
+│  └─ index.css                 # shared styling
 └─ package.json
 ```
 
 ## Future Extensions / Backlog (deliberately out of v1 — captured here so nothing gets lost)
 
+- **HIGH PRIORITY — Board visibility/audit views, on both sides of a share.** Surfaced testing Stage 3 (receiving) end to end with a real second account: after accepting an invite and clicking "Back to dashboard," there is currently no way for that recipient to find their way back to the board again — no list, nothing. The only way back is re-visiting the original invite link, which still works (invites don't expire for 7 days, re-accepting is idempotent, Decision #39) but isn't a real answer. Two distinct views are needed, neither built yet:
+  - **Recipient side — "Shared with me":** a list, on the dashboard, of every board this user has accepted an invite to (name, link to `/board/:id`).
+  - **Owner side — "Boards I've shared":** a read-only view of every board this user owns that has active grants — board name, the items on it, who it's shared with, and when (invited-at / accepted-at timestamps). Right now an owner has *no visibility at all* into who has access to what they've shared, beyond remembering it themselves.
+  Both need real backend work first — Board service currently has no "list my boards" endpoint at all (only create-one, get-one-by-id, add/remove item, invite, accept). 📚 SailPoint Prep — Topic 11 (IAM): the owner-side view in particular is a small-scale version of exactly what SailPoint IdentityIQ does — access visibility / entitlement review, "who has access to what, granted when" — worth explicitly building out as a real talking point, not just noting as a gap.
 - **Books-read module**: track books read, with personal summaries/notes. Different in kind from the Twitter/Browser connectors — this needs an actual content *editor* (writing original text), not just an ingestion pipeline pulling from an external source. Will likely need its own entity (e.g. `ReadingEntries`: title, author, summary body, rating, date) and a text-editing UI, not a tile-preview UI. Worth revisiting whether "Board" stays generic enough to hold this, or whether it becomes its own module — decide when we get here.
 - **Editor role at invite time** (see Decision #10) — role picker deferred, hardcoded Viewer for v1.
 - **Add selection to an existing shared board** (see Decision #9) — deferred, v1 always creates a new board.
@@ -270,6 +315,9 @@ web/
 | 50 | The React UI is written in TypeScript | Plain JavaScript, matching the extension's choice | Consistent with how the whole backend was built — Pydantic schemas and SQLAlchemy `Mapped[...]` annotations mean every API contract is already strongly typed on the server side. TypeScript interfaces mirroring those response shapes catch a frontend/backend contract mismatch at compile time rather than as a runtime bug discovered by clicking around. No OpenAPI-to-TypeScript codegen in this pass — interfaces are hand-written to mirror the Pydantic schemas, which is its own future decision if the two start drifting. |
 | 51 | The web UI's supporting stack, chosen together as one proportionality pass: `react-router-dom` for client-side routing; React's built-in Context API (not Redux/Zustand) for auth state; plain `fetch` wrapped in a small `apiRequest` helper (not TanStack Query) for data fetching; plain CSS (not a component library or Tailwind); access/refresh tokens in `localStorage` (not httpOnly cookies) | Redux/Zustand for state; TanStack Query for server-state caching/fetching; a component library or Tailwind for styling; httpOnly cookies for token storage | Same proportionality thread as Decision #15 (FastAPI over Spring Boot) and #47 (vanilla-JS extension): each alternative solves a real problem this app doesn't have yet — Redux/Zustand earn their weight with state shared across many disconnected parts of a tree, TanStack Query earns its weight with complex caching/invalidation across many endpoints, a component library earns its weight with a large, visually complex surface. The UI here is one auth flag plus a handful of `fetch` calls — routing is the only piece with no reasonable hand-rolled substitute, hence the one real dependency. localStorage over httpOnly cookies isn't a security-first choice, it's a consequence of Auth's actual response shape (Decision #24): tokens come back in a JSON body today, not `Set-Cookie`, so something client-side has to hold them; revisiting this is its own future decision if Auth's response shape ever changes. |
 | 52 | Gateway gets real CORS support — FastAPI's `CORSMiddleware`, allowed origins read from a `CORS_ALLOWED_ORIGINS` env var (set in `docker-compose.yml`, currently just `http://localhost:5173`), `allow_credentials` left off since the web UI authenticates via an `Authorization` header, not cookies | A wildcard origin (`allow_origins=["*"]`); hardcoding the origin directly in `main.py` instead of an env var | Real bug, caught immediately on the first actual browser login attempt through the real UI: signing in failed with a generic "Failed to fetch," which is the browser's error for a CORS-blocked request, not a network failure — confirmed by checking Gateway's response headers directly with curl and finding no `Access-Control-Allow-Origin` at all. The browser extension (Decision #47) never hit this because Manifest V3's `host_permissions` exempts extension code from CORS entirely — a plain webpage on its own origin (`localhost:5173`, a different port than Gateway's `8000`, hence a different origin) gets no such exemption. Wildcard was ruled out on top of being unnecessarily broad: browsers reject a wildcard origin combined with a credentialed request outright, so it wouldn't even satisfy the immediate need. Env var over hardcoding, to match how Gateway already receives every other service URL (`AUTH_SERVICE_URL`, etc.) — and because the origin will need to change again once the UI is actually deployed somewhere other than localhost. |
+| 53 | The extension's Chrome-vs-Firefox detection (`shared.js`'s `CONNECTION_TYPE`) checks for `browser.runtime.getBrowserInfo`, a real WebExtensions API Firefox implements and Chrome never has — not `typeof browser !== "undefined"` | Keep the broad `typeof browser` check; detect via `navigator.userAgent` instead | Real bug, found from an actual user's real Chrome browser mislabeling every synced bookmark as Firefox — confirmed by inspecting the live database directly (`connectors.connections.type` was `browser_firefox` for a connection authorized from real Chrome, and all 970 of that account's `items` rows carried `source: 'firefox'`). Root cause: the original heuristic assumed only Firefox defines a global `browser` object, which was true when Decision #47 was written but is no longer true — Chrome now defines one too, so `typeof browser !== "undefined"` stopped being Firefox-specific. The bug wasn't in the sync loop itself — `CONNECTION_TYPE` is computed once, at connection-authorization time, then stored on the `connections` row and applied to every item in every subsequent sync batch from that connection, which is exactly why one bad detection silently mislabeled hundreds of items over multiple real syncs before being noticed. Fixed by checking a *feature* only Firefox actually implements instead of an object whose mere presence is no longer browser-specific — same feature-detection philosophy as before (Decision #47's own comment), just pointed at a signal that's still true. `navigator.userAgent` was passed over as the classic string-sniffing approach this codebase had otherwise avoided; a feature check stays consistent with how `browserApi` itself is already chosen one line above. Existing mislabeled data (the one connection's `type`, all 970 `items` rows) was corrected directly against the running database — a one-time backfill, not something the running services needed to handle going forward, since the mistake can no longer happen once new connections stop being created wrong. |
+| 54 | Gateway's CORS config adds `allow_origin_regex=r"^(chrome\|moz)-extension://.*$"` alongside the exact-match `CORS_ALLOWED_ORIGINS` allowlist from Decision #52 — so the browser extension's own origin is always allowed, no matter which browser or which random per-install UUID it gets | Add each specific `moz-extension://<uuid>` origin to `CORS_ALLOWED_ORIGINS` by hand; broaden to `allow_origins=["*"]` | Real bug, found testing the extension in actual Firefox for the first time: Decision #47 assumed `host_permissions` fully exempts extension-page fetches from CORS, which holds in Chrome but turned out false in Firefox — Gateway's own access logs showed a genuine preflight `OPTIONS /auth/login` arriving with `Origin: moz-extension://<uuid>`, rejected with `400 Bad Request: "Disallowed CORS origin"` since only `localhost:5173` was allowlisted. An exact-match entry per extension install doesn't work here: a temporarily-loaded (unsigned, dev-mode) add-on gets a fresh random UUID in its `moz-extension://` origin on every reload, so today's allowed origin would already be wrong tomorrow. A regex matching any `chrome-extension://` or `moz-extension://` origin is narrower than a full wildcard despite looking broad: an extension origin is only reachable by code the browser has already let the user install and grant `host_permissions` to — a fundamentally different, much smaller threat surface than "any website," which is what `allow_origins=["*"]` would actually open up. Verified with three cases against the live Gateway: a `moz-extension://` origin (now allowed), the web UI's real origin (still allowed), and an arbitrary untrusted origin (still rejected). |
+| 55 | `LoginPage`'s "Sign up" link and `SignupPage`'s "Log in" link both pass `state={location.state}` to `<Link>`, forwarding whatever `from` ProtectedRoute stashed there rather than dropping it | Leave the cross-links as plain `<Link to="/signup">`/`<Link to="/login">` with no state | Real bug, found testing the invite-accept flow with an actual second account for the first time: pasting an invite link while logged out correctly redirected to `/login` with `from` set to the invite URL — the return-path mechanism itself worked — but the recipient had no account yet and clicked "Sign up" — a plain `<Link>` with no `state` prop, which silently dropped `from` on that hop. Signup then succeeded but landed on the plain dashboard instead of the shared board, since `SignupPage` had nothing left to return to. The return-path mechanism was only tested as "logged out, has an account, logs in" — the "logged out, no account yet, signs up" branch goes through an extra hop (`/login` → `/signup`) that a first pass missed entirely. General lesson: a state-passing mechanism between two routes needs checking at every link that connects them, not just the ones on the direct path first tested. |
 
 ---
 

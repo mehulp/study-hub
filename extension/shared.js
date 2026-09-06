@@ -2,14 +2,19 @@
 // a genuine external client, same as a future web UI (Decision #47).
 const GATEWAY_URL = "http://localhost:8000";
 
-// Firefox implements the promise-based `browser` namespace natively;
-// Chrome only defines `chrome` (callback-based, though modern Chrome also
-// accepts promises from most of its own APIs). Detecting which one exists
-// is the standard cross-browser WebExtensions pattern, and doubles as the
-// "which connection type is this" signal Connectors' schema needs
-// (`browser_chrome` vs `browser_firefox`, Decision #42's schema note).
+// Firefox implements the promise-based `browser` namespace natively; Chrome
+// only defines `chrome`. That distinction is what `browserApi` below relies
+// on (harmless either way — both objects support the same calls this file
+// makes). But `typeof browser !== "undefined"` is NOT safe to also use as
+// "which real browser is this" (see CONNECTION_TYPE below) — real-world
+// testing found Chrome now defines a global `browser` too, which
+// misidentified an actual Chrome install as Firefox and mistagged every
+// synced bookmark's source. `runtime.getBrowserInfo` is the fix: a real
+// WebExtensions API Firefox implements and Chrome never has, so its
+// presence is a Firefox-specific signal instead of "does some object with
+// this name exist."
 const browserApi = typeof browser !== "undefined" ? browser : chrome;
-const CONNECTION_TYPE = typeof browser !== "undefined" ? "browser_firefox" : "browser_chrome";
+const CONNECTION_TYPE = browserApi.runtime.getBrowserInfo ? "browser_firefox" : "browser_chrome";
 
 async function getStoredConnection() {
   const result = await browserApi.storage.local.get(["connectionId", "pushToken"]);

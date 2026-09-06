@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, type Location } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import * as authApi from "../api/auth";
 
@@ -10,6 +10,8 @@ export function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: Location })?.from ?? "/";
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -21,7 +23,7 @@ export function SignupPage() {
       // separate call, made right here for a smooth "sign up and land on
       // the dashboard" feel rather than a second manual step.
       await login(email, password);
-      navigate("/");
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
@@ -58,7 +60,7 @@ export function SignupPage() {
       </form>
       {error && <p className="error">{error}</p>}
       <p>
-        Already have an account? <Link to="/login">Log in</Link>
+        Already have an account? <Link to="/login" state={location.state}>Log in</Link>
       </p>
     </div>
   );
