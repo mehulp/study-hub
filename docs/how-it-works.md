@@ -26,6 +26,8 @@ Gateway is the one front door everything comes through. It doesn't store anythin
 
 **Concrete example:** you call Gateway's `/auth/me` with a valid access token. Gateway sees `/me` isn't on the "no login needed" list, checks your token against the public key it fetched at startup, confirms it's real and unexpired, then quietly forwards the same request to Auth's own `/me` endpoint, gets your user info back, and hands it to you. Send a fake token instead, and Gateway catches it itself — confirmed by checking Auth's own logs and seeing that request never arrived there at all.
 
+- **Letting a web page talk to it at all:** a browser won't let a webpage read a response from a different origin (a different port counts) unless the server says "this specific page is allowed to." Gateway now says exactly that for the web UI's own address — anything else asking, from a browser, still gets silently blocked by the browser itself before Gateway's answer is ever even shown to it. The browser extension never needed this special permission — extensions get a general exemption a plain webpage doesn't.
+
 ## Items service
 
 Items is the catalog of every bookmark you've ever saved, from every source, in one normalized shape — the thing the dashboard actually reads from.
@@ -57,3 +59,20 @@ Connectors is the bridge between an actual bookmark source (right now, a browser
 - **Why not just have the extension use your real login every time:** a browser extension runs in a much less trustworthy place than a server — it's sitting in your browser, alongside every other extension you've installed. If it leaked your actual login, whoever got it could do *anything* your account can do. A push token is much narrower — it can only push bookmarks for that one connection, nothing else, and can be thrown away and replaced without touching your real password.
 - **Syncing bookmarks:** the extension gathers a whole batch of bookmarks at once (imagine your entire existing Chrome bookmarks folder, not one at a time) and sends them all in a single request, along with its push token. Connectors checks the token against the right connection, then works through the batch one bookmark at a time, handing each one to Items. If one bookmark in a batch of two hundred is malformed, that's reported as one failure — the other hundred and ninety-nine still go through. Sending the exact same bookmark again later (a routine re-sync) is a normal, harmless outcome, not an error.
 - **Talking to Items on your behalf:** Connectors isn't logged in as you, and it isn't a person at all — so instead of a login token, it holds its own separate machine credential (see Auth's "authenticating a service" note above) and uses that to tell Items "this bookmark belongs to this specific person," even though nobody is sitting at a keyboard for this to happen.
+
+## Web UI
+
+The web UI is the actual website — sign in, see your bookmarks, share a board — as opposed to the browser extension (which only ever does one thing: push your bookmarks in).
+
+It's built as three layers, each one only trusting the layer directly below it:
+
+1. **A thin layer that talks to Gateway** — the only part of the whole app that actually makes network calls. Every other piece goes through it instead of calling Gateway directly. It's also where your tokens physically live, and it's the one place that knows how to quietly get you a new short-lived token when the old one expires, without you noticing.
+2. **A single shared "am I logged in?" flag**, sitting above every page. Nothing below it figures out login state on its own — everything just reads this one flag.
+3. **The pages themselves, plus a gatekeeper in front of the ones that require being logged in.** The gatekeeper checks layer 2's flag before a protected page is even allowed to render; if you're not logged in, you're redirected to the sign-in page instead.
+
+That layering is what makes each piece replaceable without touching the others — swap out how tokens are refreshed, and no page has to change; add a second protected page later, and it inherits the same gate for free.
+
+- **Signing in:** you type your email and password, the page hands them to Auth (through Gateway, same as everything else) and gets back the same wristband/ticket-stub pair described above. Both get tucked away in the browser's own storage for that site, so the page remembers you're signed in even if you close the tab and come back later.
+- **Staying signed in:** every time the page loads, it just checks "is a wristband sitting in storage?" If yes, you're treated as signed in immediately — no extra round-trip to Auth just to confirm. If your wristband quietly expires while you're actively using the site, the page notices on the very next thing it asks for, fetches a new one behind the scenes using your ticket stub, and retries — you never see that happen unless your ticket stub has *also* gone bad (30 days idle, or already used once — see Auth's refresh note above), in which case you're dropped back to the sign-in page.
+- **Not repeating the "are you signed in" check on every single page:** pages that require being signed in are grouped together and share one single check. If you're not signed in and try to reach one, you're redirected to the sign-in page instead of that page trying (and failing) to load your data.
+- **Signing out:** the page tells Auth to kill your ticket stub for real (not just forgetting it locally — an actual server-side revocation, the same one described above), then forgets both pieces it was holding and sends you back to the sign-in page. If telling Auth fails for some reason (you're offline, say), you still get signed out locally regardless — you're never stuck looking signed-in with no way out.

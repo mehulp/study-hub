@@ -1,0 +1,40 @@
+:root {
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+}
+
+.auth-page {
+  max-width: 320px;
+  margin: 80px auto;
+}
+
+.auth-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.auth-page input {
+  padding: 8px;
+  font-size: 14px;
+}
+
+.auth-page button {
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.error {
+  color: #c0392b;
+}

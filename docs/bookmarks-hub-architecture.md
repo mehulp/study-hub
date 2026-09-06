@@ -60,6 +60,7 @@ flowchart TD
 - **Entity vs. code distinction:** something belongs in the data model (an entity/table) if a background process needs to read it again later, without the user present. If it only matters in the instant it's happening, it's code, not data. Example: the OAuth handshake with Twitter is code (runs once); the access token it produces is data (must persist so the ingestion connector can keep working weeks later without re-authorization) — hence `Connection` is an entity, not just logic.
 - **Zero Trust Architecture (NIST SP 800-207):** never trust a service-to-service call just because of network location ("it's inside our VPC" is not a control). Every internal call gets authenticated and authorized independently. In production this is usually mTLS via a service mesh (Istio/Linkerd) with SPIFFE/SPIRE giving each workload a cryptographic identity, plus a policy engine (OPA) for authorization — full audit trail of real service identity, not just "someone with the key." This project approximates the same identity principle (short-lived, per-service, verifiable tokens) via OAuth2 client-credentials flow, without the mesh infrastructure — a deliberate scope trade-off worth stating explicitly as "how this scales at a real company" in an interview.
 - **Debugging cross-boundary PATH resolution (WSL):** hit a real bug where `npm` was found but `node` wasn't. Root cause: WSL exposes Windows executables into its own PATH by default ("interop"), so a Windows-side Node.js install was leaking into the Linux environment inconsistently. Diagnosed with `which node` / `which npm` — showing one resolving to `/mnt/c/Program Files/...` (Windows) confirmed the cross-boundary leak. Fixed by installing Node natively via nvm, which takes PATH priority. Good general lesson: when two tools that should behave the same way don't, check *where* each one is actually resolving from before assuming either is broken.
+- **Browser CORS / Same-Origin Policy (Decision #52):** a browser blocks a page from *reading* a cross-origin response unless the server explicitly opts in via `Access-Control-Allow-Origin`, regardless of whether the server actually processed the request fine — the failure shows up client-side as a generic, unhelpful "Failed to fetch," not as any particular HTTP status code, which makes it easy to misdiagnose as a network or server problem. A "real" request first sends an invisible preflight `OPTIONS` request asking the server's permission before the browser lets the actual `GET`/`POST`/etc. through at all. This is purely a browser-enforced client-side policy — curl or any non-browser HTTP client was never affected by it, which is exactly why the Gateway's own automated tests (which use a test client, not a real browser) never caught the missing CORS headers. The browser extension was structurally immune to this whole category of bug (Decision #47's `host_permissions`), which is *why* it was the first time this project ran into CORS at all, despite Gateway having been called by an external client for a while already.
 
 ## Step 2: Domain Model — DRAFT (pending further discussion)
 
@@ -137,6 +138,72 @@ flowchart TD
   - *Design note: one table models both states of "Access Grant" from Step 2 (pending-by-email, settled-by-user_id) via nullable `user_id` + `status`, rather than two separate tables — the pending→accepted transition is a single row update.*
   - *FK note: `board_id` is a real FK (same-schema, Board service owns both); `user_id` is a soft reference (crosses into `auth` schema — see Decision #14).*
 
+## Web UI — Structure & Layers
+
+The web UI (`web/`, Decisions #49–52) is organized as three layers, each only trusting the one below it — see `how-it-works.md`'s Web UI section for the plain-English version of what each layer does. This section maps that same model onto the actual files.
+
+```mermaid
+flowchart TD
+    subgraph Pages ["Layer 3 — Pages & Routing"]
+        APP[App.tsx<br/>route tree]
+        PR[ProtectedRoute.tsx<br/>gatekeeper]
+        LP[LoginPage.tsx]
+        SP[SignupPage.tsx]
+        DP[DashboardPage.tsx<br/>placeholder]
+    end
+    subgraph AuthLayer ["Layer 2 — Shared Auth State"]
+        AC[AuthContext.tsx<br/>isAuthenticated flag]
+    end
+    subgraph APILayer ["Layer 1 — Talks to Gateway"]
+        AUTHAPI[api/auth.ts<br/>login, signup, logout calls]
+        CLIENT[api/client.ts<br/>apiRequest: attaches token,<br/>refreshes + retries on 401,<br/>holds tokens in localStorage]
+    end
+    APP --> PR
+    APP --> LP
+    APP --> SP
+    PR --> DP
+    LP --> AC
+    SP --> AC
+    PR --> AC
+    AC --> AUTHAPI
+    AUTHAPI --> CLIENT
+    CLIENT -->|HTTP, Bearer token| GW[Gateway :8000]
+```
+
+| Layer | File | Role |
+|---|---|---|
+| 1 — API | `src/api/client.ts` | The only place that calls `fetch`. Owns token storage (localStorage), attaches the access token to every request, and on a `401` does one refresh-and-retry before giving up. Also the module boundary where a failed refresh fires the `bookmarks_hub:logged_out` browser event that layer 2 listens for. |
+| 1 — API | `src/api/auth.ts` | Thin, specific calls built on `client.ts` — login, signup, `getCurrentUser`, logout. `logout()` best-effort revokes the refresh token server-side before clearing local state. |
+| — | `src/types/api.ts` | TypeScript interfaces mirroring the backend's Pydantic response schemas — no logic, just compile-time contract-checking (Decision #50). |
+| 2 — Auth state | `src/auth/AuthContext.tsx` | The single `isAuthenticated` flag every page reads, via React's Context API (Decision #51). Initializes from whatever's already in storage on page load; listens for the `bookmarks_hub:logged_out` event so a token-refresh failure anywhere in the app updates this flag. |
+| 3 — Pages/Routing | `src/App.tsx` | The route table: `/login`, `/signup` public; everything else nested under the gatekeeper. Wraps the whole tree in `AuthProvider` so `AuthContext` is reachable from any page. |
+| 3 — Pages/Routing | `src/components/ProtectedRoute.tsx` | The gatekeeper — checks `isAuthenticated`, redirects to `/login` if false, otherwise renders whichever protected page matched. |
+| 3 — Pages/Routing | `src/pages/LoginPage.tsx`, `SignupPage.tsx`, `DashboardPage.tsx` | The actual screens. `DashboardPage` is still a placeholder — real content (Items, sources) is the next build step. |
+
+**Directory layout, same information as a picture:**
+
+```
+web/
+├─ src/
+│  ├─ types/
+│  │  └─ api.ts              # backend response shapes, mirrored
+│  ├─ api/
+│  │  ├─ client.ts           # Layer 1 — fetch, token storage, refresh+retry
+│  │  └─ auth.ts             # Layer 1 — login/signup/getCurrentUser/logout
+│  ├─ auth/
+│  │  └─ AuthContext.tsx     # Layer 2 — shared isAuthenticated flag
+│  ├─ components/
+│  │  └─ ProtectedRoute.tsx  # Layer 3 — gatekeeper (redirect if not logged in)
+│  ├─ pages/
+│  │  ├─ LoginPage.tsx       # Layer 3
+│  │  ├─ SignupPage.tsx      # Layer 3
+│  │  └─ DashboardPage.tsx   # Layer 3 — placeholder
+│  ├─ App.tsx                # Layer 3 — route tree, wraps AuthProvider
+│  ├─ main.tsx                # entry point, mounts <App />
+│  └─ index.css                # shared styling
+└─ package.json
+```
+
 ## Future Extensions / Backlog (deliberately out of v1 — captured here so nothing gets lost)
 
 - **Books-read module**: track books read, with personal summaries/notes. Different in kind from the Twitter/Browser connectors — this needs an actual content *editor* (writing original text), not just an ingestion pipeline pulling from an external source. Will likely need its own entity (e.g. `ReadingEntries`: title, author, summary body, rating, date) and a text-editing UI, not a tile-preview UI. Worth revisiting whether "Board" stays generic enough to hold this, or whether it becomes its own module — decide when we get here.
@@ -199,6 +266,10 @@ flowchart TD
 | 46 | The browser extension's v1 sync is a manual "Sync Now" button — no background listeners, no automatic event-driven syncing | Real-time, event-driven sync via `chrome.bookmarks.onCreated` etc. in a persistent background service worker | Same staged approach used for every other service this session (Auth: signup → login/refresh → me; Board: core → sharing) — get the simplest version working and proven end to end (browser → Connectors → Items) before adding complexity. Real-time sync is a genuine, technically-sound v2 enhancement already named in the Future Extensions backlog (browsers, unlike Twitter, can actually push bookmark events instantly) — deferred deliberately, not because it's a bad idea, but because a persistent background context with its own listener-lifecycle and offline/retry story is meaningfully more to get right on a first pass. |
 | 47 | The browser extension is plain vanilla JS/HTML/CSS, Manifest V3, no build step — no bundler, no TypeScript, no npm tooling | A bundler (Vite/webpack) with TypeScript compilation | Same proportionate-tooling reasoning as Decision #15 (FastAPI over Spring Boot): the extension is a popup, an options page, and one script calling a REST API already fully understood — real build infrastructure would be disproportionate to that scope. A useful side effect of Decision #46 (manual sync, no background listeners): the manifest needs no `background` service worker at all for v1, which also sidesteps the Chrome/Firefox MV3 background-syntax differences entirely. Calls go through Gateway (`http://localhost:8000/connectors/...`), not directly to Connectors — the extension is a genuine external client, same as a future web UI, consistent with the reasoning already established when Connectors was wired into Gateway's routing table. |
 | 48 | Connectors processes a sync batch concurrently (bounded to 10 at a time via a semaphore), not sequentially; Gateway wraps its upstream proxy call in real error handling (`504`/`502` with a JSON body on timeout/failure, not an unhandled exception) and its timeout moved from 10s to 30s; the extension's fetch wrappers read an error body as text before attempting `JSON.parse`, so a non-JSON error response produces a readable message instead of crashing on the parse itself | Leave the sequential loop and the 10s timeout as they were, and let clients handle malformed error bodies themselves | Real bug, found by an actual user syncing an actual long-used browser profile — no test caught it, because no test used a large enough batch to make the sequential loop slow enough to exceed Gateway's timeout. The failure mode was a genuinely bad one: an unhandled `httpx.TimeoutException` in Gateway produced Starlette's default plain-text 500 page, which the extension's `response.json()` call then crashed trying to parse, surfacing as a cryptic "Unexpected token" error with no indication of the real cause. Three layers each got a real fix, not just the one that happened to be visible: Connectors' concurrency addresses the root cause (a slow batch), Gateway's error handling addresses "an upstream failure should never leak as an unparseable page" as a general robustness property (not specific to this one cause), and the extension's defensive parsing means the next unanticipated error shape still surfaces a readable message instead of a crash. |
+| 49 | The web UI is built with React + Vite | (a) Vanilla JS, no framework, same philosophy as the browser extension; (b) another framework (Vue, Svelte, htmx) | The extension stayed vanilla because it was genuinely simple (three small pages, no shared state, no routing). The web UI is a different shape: a login screen, a dashboard with two source blocks, tile-vs-list rendering per source (Decision #7), a board view with owner/viewer-aware controls, and a sharing flow — all sharing one login session, with real client-side navigation between views. Hand-rolling routing/state management at that scale costs more than it teaches, unlike backend auth/RBAC which was itself the point. React is also the most standard, most transferable choice — the one most likely to match what "full-stack" means to an interviewer. |
+| 50 | The React UI is written in TypeScript | Plain JavaScript, matching the extension's choice | Consistent with how the whole backend was built — Pydantic schemas and SQLAlchemy `Mapped[...]` annotations mean every API contract is already strongly typed on the server side. TypeScript interfaces mirroring those response shapes catch a frontend/backend contract mismatch at compile time rather than as a runtime bug discovered by clicking around. No OpenAPI-to-TypeScript codegen in this pass — interfaces are hand-written to mirror the Pydantic schemas, which is its own future decision if the two start drifting. |
+| 51 | The web UI's supporting stack, chosen together as one proportionality pass: `react-router-dom` for client-side routing; React's built-in Context API (not Redux/Zustand) for auth state; plain `fetch` wrapped in a small `apiRequest` helper (not TanStack Query) for data fetching; plain CSS (not a component library or Tailwind); access/refresh tokens in `localStorage` (not httpOnly cookies) | Redux/Zustand for state; TanStack Query for server-state caching/fetching; a component library or Tailwind for styling; httpOnly cookies for token storage | Same proportionality thread as Decision #15 (FastAPI over Spring Boot) and #47 (vanilla-JS extension): each alternative solves a real problem this app doesn't have yet — Redux/Zustand earn their weight with state shared across many disconnected parts of a tree, TanStack Query earns its weight with complex caching/invalidation across many endpoints, a component library earns its weight with a large, visually complex surface. The UI here is one auth flag plus a handful of `fetch` calls — routing is the only piece with no reasonable hand-rolled substitute, hence the one real dependency. localStorage over httpOnly cookies isn't a security-first choice, it's a consequence of Auth's actual response shape (Decision #24): tokens come back in a JSON body today, not `Set-Cookie`, so something client-side has to hold them; revisiting this is its own future decision if Auth's response shape ever changes. |
+| 52 | Gateway gets real CORS support — FastAPI's `CORSMiddleware`, allowed origins read from a `CORS_ALLOWED_ORIGINS` env var (set in `docker-compose.yml`, currently just `http://localhost:5173`), `allow_credentials` left off since the web UI authenticates via an `Authorization` header, not cookies | A wildcard origin (`allow_origins=["*"]`); hardcoding the origin directly in `main.py` instead of an env var | Real bug, caught immediately on the first actual browser login attempt through the real UI: signing in failed with a generic "Failed to fetch," which is the browser's error for a CORS-blocked request, not a network failure — confirmed by checking Gateway's response headers directly with curl and finding no `Access-Control-Allow-Origin` at all. The browser extension (Decision #47) never hit this because Manifest V3's `host_permissions` exempts extension code from CORS entirely — a plain webpage on its own origin (`localhost:5173`, a different port than Gateway's `8000`, hence a different origin) gets no such exemption. Wildcard was ruled out on top of being unnecessarily broad: browsers reject a wildcard origin combined with a credentialed request outright, so it wouldn't even satisfy the immediate need. Env var over hardcoding, to match how Gateway already receives every other service URL (`AUTH_SERVICE_URL`, etc.) — and because the origin will need to change again once the UI is actually deployed somewhere other than localhost. |
 
 ---
 

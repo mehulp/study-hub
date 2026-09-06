@@ -115,6 +115,11 @@ services:
       ITEMS_SERVICE_URL: http://items:8002
       BOARD_SERVICE_URL: http://board:8003
       CONNECTORS_SERVICE_URL: http://connectors:8004
+      # The web UI (web/, served by Vite on 5173) is a different origin
+      # than Gateway — unlike the browser extension, which bypasses CORS
+      # entirely via host_permissions, a plain webpage needs Gateway to
+      # explicitly allow it.
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
       auth:
         condition: service_healthy

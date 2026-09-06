@@ -7,6 +7,7 @@ import httpx
 import jwt as pyjwt
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from jwt.algorithms import RSAAlgorithm
 
@@ -16,6 +17,7 @@ AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
 ITEMS_SERVICE_URL = os.environ["ITEMS_SERVICE_URL"]
 BOARD_SERVICE_URL = os.environ["BOARD_SERVICE_URL"]
 CONNECTORS_SERVICE_URL = os.environ["CONNECTORS_SERVICE_URL"]
+CORS_ALLOWED_ORIGINS = os.environ["CORS_ALLOWED_ORIGINS"].split(",")
 JWT_ALGORITHM = "RS256"
 
 # Routing table (Decision #31): one entry per backend service. Gateway's
@@ -76,6 +78,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Gateway", lifespan=lifespan)
+
+# The extension never needed this (host_permissions exempts it from CORS
+# entirely, Decision #46) — the web UI is a plain webpage on its own origin
+# (localhost:5173) and gets no such exemption, so Gateway must opt it in
+# explicitly. allow_credentials is off: the web UI sends its access token
+# as an Authorization header, not via cookies, so requests aren't
+# "credentialed" in the fetch/CORS sense.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _match_route(path: str) -> dict:
