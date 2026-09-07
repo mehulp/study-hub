@@ -1,24 +1,36 @@
 import asyncio
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.auth import bearer_scheme, get_current_user_id, load_public_key
 from app.db import get_db
 from app.items_client import ItemsServiceError, ingest_item
-from app.models import Connection
+from app.models import Connection, OAuthState
 from app.schemas import (
     ConnectionResponse,
     CreateConnectionRequest,
     CreateConnectionResponse,
     SyncRequest,
     SyncResponse,
+    TwitterAuthorizeResponse,
 )
-from app.security import generate_push_token, hash_push_token, verify_push_token
+from app.security import (
+    generate_oauth_state,
+    generate_pkce_pair,
+    generate_push_token,
+    hash_push_token,
+    verify_push_token,
+)
+from app.twitter_client import TwitterOAuthError, build_authorize_url, exchange_code_for_tokens
+
+OAUTH_STATE_TTL = timedelta(minutes=10)
+WEB_UI_URL = "http://localhost:5173"
 
 # A real, long-used browser can easily have hundreds of bookmarks. Processing
 # them one at a time — each a full network round trip to Items — made a
@@ -37,6 +49,7 @@ SYNC_CONCURRENCY_LIMIT = 10
 CONNECTION_TYPE_TO_SOURCE = {
     "browser_chrome": "chrome",
     "browser_firefox": "firefox",
+    "twitter": "twitter",
 }
 
 
@@ -72,6 +85,73 @@ def create_connection(
         created_at=connection.created_at,
         push_token=push_token,  # only ever visible here, unhashed (Decision #42)
     )
+
+
+@app.get("/twitter/authorize", response_model=TwitterAuthorizeResponse)
+def twitter_authorize(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> TwitterAuthorizeResponse:
+    # The browser is about to leave our app entirely (a real navigation to
+    # x.com) and come back minutes later to a *different* endpoint below,
+    # with no Bearer token attached — code_verifier and "which user asked
+    # for this" both have to survive that round trip somewhere server-side.
+    state = generate_oauth_state()
+    code_verifier, code_challenge = generate_pkce_pair()
+
+    db.add(
+        OAuthState(
+            state=state,
+            owner_user_id=user_id,
+            code_verifier=code_verifier,
+            expires_at=datetime.now(timezone.utc) + OAUTH_STATE_TTL,
+        )
+    )
+    db.commit()
+
+    return TwitterAuthorizeResponse(authorize_url=build_authorize_url(state, code_challenge))
+
+
+@app.get("/twitter/callback")
+async def twitter_callback(
+    code: str,
+    state: str,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    # This endpoint is hit by a raw browser redirect from X, not an
+    # authenticated API call — Gateway has to let it through as public
+    # (added to PUBLIC_PATHS), and the CSRF/replay protection here is
+    # entirely this state lookup, not a JWT.
+    pending = db.query(OAuthState).filter(OAuthState.state == state).first()
+    now = datetime.now(timezone.utc)
+    if pending is None or pending.expires_at < now:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired state")
+
+    # Single-use: delete immediately, whether or not the exchange below
+    # succeeds, so a captured/replayed callback URL can't be reused.
+    db.delete(pending)
+    db.commit()
+
+    try:
+        tokens = await exchange_code_for_tokens(code, pending.code_verifier)
+    except TwitterOAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    connection = (
+        db.query(Connection)
+        .filter(Connection.owner_user_id == pending.owner_user_id, Connection.type == "twitter")
+        .first()
+    )
+    if connection is None:
+        connection = Connection(owner_user_id=pending.owner_user_id, type="twitter")
+        db.add(connection)
+
+    connection.oauth_access_token = tokens["access_token"]
+    connection.oauth_refresh_token = tokens.get("refresh_token")
+    connection.token_expires_at = now + timedelta(seconds=tokens["expires_in"])
+    db.commit()
+
+    return RedirectResponse(url=f"{WEB_UI_URL}/?twitter=connected")
 
 
 @app.get("/connections", response_model=list[ConnectionResponse])

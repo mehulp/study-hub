@@ -138,19 +138,22 @@
 
 ---
 
-## OAuth2 and PKCE — 🔲 Twitter integration pending
+## OAuth2 and PKCE — 🟡 authorization built, data fetch pending
 
-**Simple theory:** OAuth2's Authorization Code flow lets a user grant a third-party app limited access to their account on another service, without ever handing that app their password. PKCE (Proof Key for Code Exchange) adds a cryptographic proof that whoever completes the token exchange is the same party that started it — essential for public clients (mobile apps, single-page apps) that can't safely hold a client secret.
+**Simple theory:** OAuth2's Authorization Code flow lets a user grant a third-party app limited access to their account on another service, without ever handing that app their password. PKCE (Proof Key for Code Exchange) adds a cryptographic proof that whoever completes the token exchange is the same party that started it.
 
-**In our project: not yet built.** The plan is a Twitter/X connector using OAuth2 + PKCE so a user can authorize this app to read their Twitter bookmarks without ever sharing their Twitter password. The `connections` table already has nullable columns provisioned for OAuth tokens, but no OAuth flow, callback route, or token-refresh logic exists yet.
+**In our project:** the full Authorization Code + PKCE handshake with X (Twitter) is built and verified end to end (Decision #56) — a "Connect Twitter" button sends the user to a real X consent screen; a callback endpoint exchanges the resulting code for real access/refresh tokens and stores them. **Still pending:** actually calling X's API to fetch bookmarks with those tokens — deferred until API credits are purchased, since unlike authorizing, that step costs real money per read. Two things worth knowing that weren't obvious from theory alone until actually building this:
+- The textbook framing ("PKCE is for public clients that can't hold a secret") isn't the whole story — **X requires PKCE on every app, including confidential, server-side ones** like this one, which already holds a real client secret. PKCE and "can this app hold a secret safely" turned out to be two separate questions, not one.
+- The PKCE `code_verifier` needs somewhere to live *server-side* between the redirect to X and the callback minutes later, since the browser carries no session across that gap. Built as a small, short-lived database table (state → verifier), following the same pattern as this project's other opaque, DB-tracked tokens (refresh tokens, invite tokens) rather than inventing a new mechanism.
 
 **General practical example:** "Sign in with Google" or "Connect your Spotify account" buttons — the requesting app never sees your actual Google or Spotify password.
 
 **Interview points:**
-- Know the difference: Authorization Code (server-side apps that can hold a secret) vs. Authorization Code + PKCE (public clients that can't).
+- Know the difference: Authorization Code (server-side apps that can hold a secret) vs. Authorization Code + PKCE (originally for public clients that can't) — but don't assume every provider draws that line the same way; verify per-provider rather than assuming.
 - PKCE stops an intercepted authorization code from being redeemed by an attacker, by requiring a matching secret only the original requester generated.
 - Client credentials (previous entry) and Authorization Code/PKCE solve different problems — "a service acting as itself" versus "a user delegating limited access to a third party."
-- It's fine, and more credible in an interview, to say plainly that this is designed-for but not built yet, and explain the intended design — rather than implying it already works.
+- A multi-step redirect flow (browser leaves your app, comes back later, to a *different* endpoint) always needs some server-side place to hold state across that gap — recognize this as the same shape as any "pending until confirmed" pattern (email verification links, payment redirects), not something OAuth-specific.
+- It's fine, and more credible in an interview, to be precise about exactly which part is built (the handshake) versus pending (the actual data pull) — rather than a blanket "yes" or "no."
 
 ---
 

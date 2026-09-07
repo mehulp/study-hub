@@ -43,6 +43,11 @@ PUBLIC_PATHS = {
     "/auth/login",
     "/auth/refresh",
     "/auth/logout",
+    # Hit by a raw browser redirect from X at the end of the OAuth dance —
+    # there's no Bearer token to check at this point in the flow at all.
+    # Its own real protection is the one-time, short-lived `state` lookup
+    # inside Connectors itself, not anything Gateway can verify.
+    "/connectors/twitter/callback",
 }
 
 # Not public — these still require a real credential — but the credential

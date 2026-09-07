@@ -29,17 +29,28 @@ Each service runs `alembic upgrade head` on container start, so migrations apply
 
 # 1. In the Ubuntu terminal (or VS Code's integrated terminal):
 cd /home/mehul/projects/bookmarks-hub
-docker compose up -d
+bash start-dev.sh
 ```
 
-Brings up all six services in health-gated dependency order — no manual `alembic upgrade head`,
-no separate `uvicorn` commands per service.
+Starts the backend stack (all six Docker services, health-gated dependency order) **and** the
+web UI's Vite dev server together, in one command. Idempotent — safe to re-run any time; it
+skips anything already running rather than starting a duplicate.
 
-If you changed any service's code since last time, rebuild first:
+This exists because the two were easy to get out of sync: the web UI is deliberately separate
+from Compose (Decision #49, since it's not part of the same container stack), which means
+restarting/rebuilding the backend never brings Vite back with it. That gap caused a real
+"unable to reach that url" confusion mid-session once already — Docker and the tunnel were all
+healthy, but the actual web UI dev server had quietly died and nothing restarted it. One script
+starting both removes the need to remember two separate steps.
+
+If you changed any service's code since last time, rebuild the backend first:
 
 ```bash
 docker compose up -d --build
 ```
+
+(`start-dev.sh` itself doesn't rebuild — plain `up -d` reuses existing images. Run the `--build`
+form above, then `bash start-dev.sh` again to bring the web UI up alongside it.)
 
 Then confirm everything's actually healthy:
 
@@ -50,13 +61,18 @@ docker compose ps
 All six should show `running` and, where a healthcheck is defined, `(healthy)`. If `auth` is
 stuck at `starting`, give it ~10s — its healthcheck has a `start_period`.
 
-### Web frontend (separate from the compose stack)
+`node_modules` is already installed for the web UI; only re-run `npm install` after a
+`package.json` change.
+
+### ngrok tunnel (only needed for Twitter OAuth testing — not part of daily startup)
 
 ```bash
-cd web && npm run dev          # Vite dev server
+ngrok http 8000
 ```
 
-`node_modules` is already installed; only re-run `npm install` after a `package.json` change.
+Gives Gateway a real public HTTPS URL for X's OAuth callback (Decision #56). Not something to
+run every day — only when actually testing the Twitter connect flow. Check it's alive with
+`curl http://127.0.0.1:4040/api/tunnels`.
 
 ### Sanity check after a long gap or a fresh machine
 

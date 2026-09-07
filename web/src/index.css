@@ -39,6 +39,16 @@ body {
   color: #c0392b;
 }
 
+.success {
+  color: #1a7f37;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .empty-state {
   color: #666;
   font-style: italic;

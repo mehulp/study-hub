@@ -92,6 +92,12 @@ services:
       ITEMS_SERVICE_URL: http://items:8002
       OAUTH_CLIENT_ID: connectors-service
       OAUTH_CLIENT_SECRET: 42aWvybVgmjbyTR-vW23_Tcge2sJeYVdjam1vPJ6Iig
+      # Unlike the internal secret above (ours, fully controlled), these
+      # come from the root .env file (gitignored) rather than being
+      # hardcoded here — X's client secret is tied to a real account.
+      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
+      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
+      TWITTER_REDIRECT_URI: ${TWITTER_REDIRECT_URI}
     depends_on:
       postgres:
         condition: service_healthy

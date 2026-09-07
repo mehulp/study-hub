@@ -4,14 +4,16 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-# Twitter isn't a valid choice yet — its OAuth flow doesn't exist (Decision
-# #3 deferred it), and this connector type only ever gets a push_token
-# (Decision #42), not the oauth_* columns Twitter would eventually use.
-ConnectionType = Literal["browser_chrome", "browser_firefox"]
+# "twitter" is valid here (unlike browser_chrome/browser_firefox, it's not
+# accepted by CreateConnectionRequest below — a Twitter connection is only
+# ever created by the OAuth callback, never by POST /connections, which
+# only ever issues a push_token).
+ConnectionType = Literal["twitter", "browser_chrome", "browser_firefox"]
+BrowserConnectionType = Literal["browser_chrome", "browser_firefox"]
 
 
 class CreateConnectionRequest(BaseModel):
-    type: ConnectionType
+    type: BrowserConnectionType
 
 
 class ConnectionResponse(BaseModel):
@@ -27,6 +29,10 @@ class CreateConnectionResponse(ConnectionResponse):
     # The only time this is ever visible unhashed (Decision #42) — same
     # pattern as refresh/invite tokens and client secrets.
     push_token: str
+
+
+class TwitterAuthorizeResponse(BaseModel):
+    authorize_url: str
 
 
 class SyncBookmarkItem(BaseModel):
