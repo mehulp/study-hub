@@ -2,6 +2,12 @@
 
 The whole stack is containerized (Decision #35), so daily startup is one command, not a per-service manual routine.
 
+**Only one of bookmarks-hub / mp-project-study-hub runs at a time.** `mp-project-study-hub`
+(`/home/mehul/projects/mp-project-study-hub`) is a separate project cloned from this one, deliberately sharing
+the same ports rather than each getting its own — simpler, and easier to shut down, at the cost of never
+running both simultaneously. `start-dev.sh` in both projects checks for this and refuses to start if the
+other one's containers are already up, rather than failing with a confusing Docker port-bind error.
+
 Run everything **inside the WSL2 Ubuntu terminal**, not PowerShell. The project lives at
 `/home/mehul/projects/bookmarks-hub` (inside WSL). Driving it from Windows would route every
 file operation through the `\\wsl$` 9p filesystem — slow builds, and relative `build:` paths in
