@@ -2,7 +2,7 @@
 
 **Purpose:** Not a syllabus checklist. This is revision material for the actual question an interview asks: *"tell me about a time you reasoned about X"* — answered with a real decision from this project, not a textbook definition. Kept in the SailPoint/IAM context this prep started from, since identity/access concepts are where this project genuinely overlaps most with that domain.
 
-**What's here:** only concepts this project has actually encountered, or that are directly relevant given where the project is headed next (see `bookmarks-hub-architecture.md`'s Near-Term Direction). Concepts not yet reached (caching, queues, sharding, etc.) are named at the end, not explained — they get added here for real once the project actually builds something that needs them, not before.
+**What's here:** only concepts this project has actually encountered, or that are directly relevant given where the project is headed next (see `study-hub-architecture.md`'s Near-Term Direction). Concepts not yet reached (caching, queues, sharding, etc.) are named at the end, not explained — they get added here for real once the project actually builds something that needs them, not before.
 
 **Format per concept:** simple theory → where it shows up in this project → one example from outside it → a handful of things to actually be able to say out loud in an interview.
 
@@ -20,7 +20,7 @@
 - Keep them as two distinct architectural questions, always — don't let "logged in" quietly stand in for "allowed to do this."
 - HTTP encodes the difference: `401 Unauthorized` really means "authentication failed or missing"; `403 Forbidden` means "authenticated, but not allowed."
 - A system can authenticate correctly and still get authorization wrong — e.g. trusting a forwarded identity header instead of independently re-checking.
-- Defense in depth means checking both at more than one layer, not trusting an upstream layer's word for it (Zero Trust reasoning — see `bookmarks-hub-architecture.md`'s Concepts Learned section).
+- Defense in depth means checking both at more than one layer, not trusting an upstream layer's word for it (Zero Trust reasoning — see `study-hub-architecture.md`'s Concepts Learned section).
 - This split is the backbone of what SailPoint/IdentityIQ actually does at enterprise scale: authentication is usually delegated to an IdP (Okta, Azure AD), while SailPoint's own job is almost entirely the authorization side — governing and certifying *what* an already-authenticated identity should be allowed to access.
 
 ---
@@ -101,7 +101,7 @@
 **Interview points:**
 - A gateway's authentication check is deliberately coarse ("is this a valid session at all") — fine-grained authorization stays with whichever service actually understands the resource.
 - A generic, table-driven gateway can onboard a new backend service with zero code changes to the gateway itself — just one new routing-table row.
-- A gateway is a natural place to enforce some things uniformly (like CORS) — but it is not a substitute for each service's own independent verification (Zero Trust reasoning — see `bookmarks-hub-architecture.md`'s Concepts Learned section).
+- A gateway is a natural place to enforce some things uniformly (like CORS) — but it is not a substitute for each service's own independent verification (Zero Trust reasoning — see `study-hub-architecture.md`'s Concepts Learned section).
 - Being stateless (no database) means Gateway can scale out or restart freely with no data-consistency concerns of its own.
 
 ---

@@ -1,6 +1,6 @@
 # How It Works — Plain English
 
-Conceptual walkthroughs of what each service actually does, in plain terms — no code, no framework jargon. For *why* things are built this way, see the Decision Log in `bookmarks-hub-architecture.md`. This doc is about *what happens*, not *why we chose it*.
+Conceptual walkthroughs of what each service actually does, in plain terms — no code, no framework jargon. For *why* things are built this way, see the Decision Log in `study-hub-architecture.md`. This doc is about *what happens*, not *why we chose it*.
 
 ## Auth service
 

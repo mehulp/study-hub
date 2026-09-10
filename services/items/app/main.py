@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import IngestAuth, get_current_user_id, get_ingest_auth, load_public_key
 from app.db import get_db
-from app.models import Item
-from app.schemas import ItemIngestRequest, ItemResponse, Source
+from app.models import Item, ItemTag
+from app.schemas import ItemIngestRequest, ItemResponse, ItemUpdateRequest, Source
 
 
 @asynccontextmanager
@@ -20,6 +20,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Items Service", lifespan=lifespan)
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    # Lowercased before every write (Decision #62, same pattern as
+    # auth.users.email — Decision #17). Deduplicated after lowercasing,
+    # since the composite primary key (item_id, tag) would otherwise reject
+    # e.g. ["System Design", "system design"] as a literal duplicate insert.
+    # dict.fromkeys preserves first-seen order while deduping.
+    seen = dict.fromkeys(t.strip().lower() for t in tags if t.strip())
+    return list(seen)
 
 
 @app.post("/")
@@ -53,8 +63,10 @@ def ingest(
         preview_text=payload.preview_text,
         preview_media_url=payload.preview_media_url,
         favicon_url=payload.favicon_url,
+        notes=payload.notes,
         saved_at=payload.saved_at,
     )
+    item.tags = [ItemTag(tag=t) for t in _normalize_tags(payload.tags)]
     db.add(item)
 
     try:
@@ -115,3 +127,67 @@ def get_item(
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     return item
+
+
+@app.patch("/{item_id}", response_model=ItemResponse)
+def update_item(
+    item_id: uuid.UUID,
+    payload: ItemUpdateRequest,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> Item:
+    # Same owner-scoped lookup + anti-enumeration 404 as get_item — a
+    # PATCH for another user's item is indistinguishable from a PATCH for a
+    # nonexistent one.
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_user_id == user_id)
+        .first()
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+
+    # `model_fields_set`, not "is this field None" — a field genuinely
+    # absent from the request body is left untouched; a field explicitly
+    # sent (including as null) is applied. This is what lets {"notes":
+    # null} really clear notes instead of being indistinguishable from not
+    # mentioning notes at all (Decision #64).
+    fields = payload.model_fields_set
+    if "title" in fields:
+        if payload.title is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="title cannot be null")
+        item.title = payload.title
+    if "url" in fields:
+        if payload.url is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="url cannot be null")
+        item.url = payload.url
+    if "notes" in fields:
+        item.notes = payload.notes
+    if "tags" in fields:
+        # Reassigning the collection triggers delete-orphan on whatever
+        # tags this drops and inserts fresh rows for the rest — SQLAlchemy
+        # diffs old vs. new, it isn't a blind delete-all-then-reinsert.
+        item.tags = [ItemTag(tag=t) for t in _normalize_tags(payload.tags or [])]
+
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(
+    item_id: uuid.UUID,
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> None:
+    item = (
+        db.query(Item)
+        .filter(Item.id == item_id, Item.owner_user_id == user_id)
+        .first()
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+    # ON DELETE CASCADE (migration 0002) handles item_tags — no separate
+    # cleanup needed here.
+    db.delete(item)
+    db.commit()
