@@ -286,6 +286,14 @@ export function StudyResources({
                     }}
                   />
                 </div>
+                {item.preview_media_url && (
+                  <img
+                    className="resource-card-image"
+                    src={item.preview_media_url}
+                    alt=""
+                    loading="lazy"
+                  />
+                )}
                 <div className="resource-header">
                   <SourceIcon kind={source.kind} />
                   <div className="resource-title-group">
@@ -355,6 +363,14 @@ export function StudyResources({
                   )}
                   {expanded && (
                     <>
+                      {item.preview_media_url && (
+                        <img
+                          className="resource-preview-image"
+                          src={item.preview_media_url}
+                          alt=""
+                          loading="lazy"
+                        />
+                      )}
                       {item.notes && (
                         <>
                           <div className="resource-source-label" style={{ marginTop: 10 }}>

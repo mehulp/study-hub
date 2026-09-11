@@ -39,6 +39,7 @@ class ItemUpdateRequest(BaseModel):
     title: str | None = None
     url: str | None = None
     notes: str | None = None
+    preview_media_url: str | None = None
     tags: list[str] | None = None
 
 

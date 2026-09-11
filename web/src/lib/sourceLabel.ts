@@ -14,6 +14,10 @@ const KNOWN_HOSTS: Record<string, SourceInfo> = {
   "hellointerview.com": { label: "Hello Interview", kind: "article" },
   "bytebytego.com": { label: "ByteByteGo", kind: "article" },
   "excalidraw.com": { label: "Excalidraw", kind: "article" },
+  "x.com": { label: "X (Twitter)", kind: "article" },
+  "twitter.com": { label: "X (Twitter)", kind: "article" },
+  "chatgpt.com": { label: "ChatGPT", kind: "article" },
+  "claude.ai": { label: "Claude", kind: "article" },
 };
 
 export function resolveSourceInfo(url: string): SourceInfo {

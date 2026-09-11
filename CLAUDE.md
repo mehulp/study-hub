@@ -241,7 +241,29 @@ still accurate before relying on it for fast-changing facts (see below).
   mockup (global header search, Boards as a sidebar widget, Profile/Settings pages) were
   explicitly discussed and declined — see Decision #83's own reasoning. Verified live
   against the real 70-item demo account across list/grid view, both dialogs, and mobile.
-- **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
-  the architecture doc's old Render note.
-- **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README
-  that leads with the architecture/Decision Log story, not "it's a bookmark manager."
+- **Next-stage roadmap — agreed, not yet built.** Full evaluation and phased plan now live
+  in `docs/study-hub-architecture.md`'s "Near-Term Direction" section (superseded its
+  earlier, now-stale 5-item version). In order: (1) Learning Plans + Continue Learning/This
+  Week, new tables in Items' own schema, not a new service; (2) a first real deployment
+  pass, pulled forward to right after Phase 1 rather than left until the end — re-verify
+  current hosting options/pricing at that point, the old Render note is stale; (3) Learning
+  completion/takeaways + Topic-level progress, extending `items` directly via the existing
+  `PATCH`; (4) Interview Prep Track — a content decision, not new architecture, using the
+  already-curated 70 resources grouped by existing tags; (5) GitHub push, after Phase 1-3
+  rather than strictly last — secrets hygiene is already done (Decision #66); (6) Review
+  queue + Related resources (client-side, no spaced repetition, no embeddings); (7) Async
+  URL metadata enrichment via FastAPI `BackgroundTasks` — no queue/worker/broker. Postgres
+  full-text search, Redis, and semantic/vector search are explicitly **not** scheduled —
+  reactive only, triggered by a named condition, not built speculatively. Decision Log not
+  yet updated for any of this — logged only once each phase is actually implemented.
+- **X/Twitter source label + optional Image URL field — ✅ Done (Decision #84).** Prompted
+  by a real workflow: saving X/Twitter threads that read like full articles, where the
+  images can't be copied as text. `x.com`/`twitter.com`/`chatgpt.com`/`claude.ai` added to
+  `lib/sourceLabel.ts`. New optional "Image URL" field on the Add/Edit Resource dialog,
+  reusing Items' existing `preview_media_url` column (connectors already populate it;
+  manual entry never had access) — no new schema, one PATCH field added. Recommended tag
+  convention for these: `ai-help` — needs no code, tags are free-text (Decision #62).
+  34 Items tests pass; verified live end to end. **Also:** fixed an unrelated WSL2 Docker
+  environment issue blocking `docker compose build` (corrupted `~/.docker/contexts` cache,
+  stale `credsStore` pointing at a nonexistent Windows credential helper) — see Decision
+  #84's own note for what changed in `~/.docker/config.json`.

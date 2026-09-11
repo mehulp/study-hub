@@ -163,6 +163,8 @@ def update_item(
         item.url = payload.url
     if "notes" in fields:
         item.notes = payload.notes
+    if "preview_media_url" in fields:
+        item.preview_media_url = payload.preview_media_url
     if "tags" in fields:
         # Reassigning the collection triggers delete-orphan on whatever
         # tags this drops and inserts fresh rows for the rest — SQLAlchemy

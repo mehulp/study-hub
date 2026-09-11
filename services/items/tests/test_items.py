@@ -206,6 +206,30 @@ def test_patch_explicit_null_clears_notes(client, auth_headers):
     assert response.json()["notes"] is None
 
 
+def test_patch_sets_preview_media_url(client, auth_headers):
+    created = client.post("/", json=ingest_payload(), headers=auth_headers).json()
+    assert created["preview_media_url"] is None
+
+    response = client.patch(
+        f"/{created['id']}",
+        json={"preview_media_url": "https://pbs.twimg.com/media/example.jpg"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["preview_media_url"] == "https://pbs.twimg.com/media/example.jpg"
+
+
+def test_patch_explicit_null_clears_preview_media_url(client, auth_headers):
+    created = client.post(
+        "/", json=ingest_payload(preview_media_url="https://pbs.twimg.com/media/example.jpg"), headers=auth_headers
+    ).json()
+    assert created["preview_media_url"] == "https://pbs.twimg.com/media/example.jpg"
+
+    response = client.patch(f"/{created['id']}", json={"preview_media_url": None}, headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["preview_media_url"] is None
+
+
 def test_patch_replaces_tags(client, auth_headers):
     created = client.post("/", json=ingest_payload(tags=["old-tag"]), headers=auth_headers).json()
 

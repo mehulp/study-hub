@@ -40,6 +40,7 @@ export function ResourceFormDialog({ item, existingTags, onClose, onSaved }: Res
   const [title, setTitle] = useState(item?.title ?? "");
   const [url, setUrl] = useState(item?.url ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
+  const [imageUrl, setImageUrl] = useState(item?.preview_media_url ?? "");
   const [tagsText, setTagsText] = useState(item?.tags.join(", ") ?? "");
   const [tagsFocused, setTagsFocused] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,8 +69,14 @@ export function ResourceFormDialog({ item, existingTags, onClose, onSaved }: Res
     try {
       const tags = parseTags(tagsText);
       const saved = isEdit
-        ? await updateItem(item.id, { title, url, notes: notes || null, tags })
-        : await createItem({ title, url, notes: notes || null, tags });
+        ? await updateItem(item.id, {
+            title,
+            url,
+            notes: notes || null,
+            imageUrl: imageUrl.trim() || null,
+            tags,
+          })
+        : await createItem({ title, url, notes: notes || null, imageUrl: imageUrl.trim() || null, tags });
       onSaved(saved);
       onClose();
     } catch (err) {
@@ -105,6 +112,19 @@ export function ResourceFormDialog({ item, existingTags, onClose, onSaved }: Res
               onChange={(e) => setNotes(e.target.value)}
               disabled={saving}
               rows={3}
+            />
+          </label>
+          <label className="field">
+            Image URL
+            <span className="dialog-hint">
+              Optional. A direct link to an image (e.g. from a tweet you can't copy as text).
+            </span>
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              disabled={saving}
+              placeholder="https://pbs.twimg.com/media/..."
             />
           </label>
           <label className="field">
