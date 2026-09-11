@@ -1,0 +1,13 @@
+{
+  // Cloudflare's static-asset deploy target replaced classic "Pages" dashboard
+  // fields (root/output directory) with this file -- Workers Builds reads it
+  // after `npm run build` produces `dist/`, then `wrangler deploy` uses it.
+  "name": "study-hub",
+  "compatibility_date": "2026-09-11",
+  "assets": {
+    "directory": "./dist",
+    // react-router-dom client-side routes (e.g. /boards, /plans) need to
+    // resolve to index.html on a direct load/refresh, not 404.
+    "not_found_handling": "single-page-application"
+  }
+}
