@@ -1489,6 +1489,142 @@ a:focus-visible {
 }
 
 /* ==========================================================================
+   Learning Plans (roadmap Phase 1, Decision #85)
+   ========================================================================== */
+.plan-card-description {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 4px 0 0;
+}
+
+.plan-description {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.plan-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.plan-item-status-in_progress {
+  border-left-color: var(--color-accent-blue);
+}
+
+.plan-item-status-completed {
+  border-left-color: var(--color-success);
+  opacity: 0.75;
+}
+
+.plan-item-status-skipped {
+  border-left-color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.plan-item-main {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.plan-item-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plan-item-controls select,
+.plan-item-controls input[type="date"] {
+  height: 34px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.plan-item-status-select {
+  min-width: 130px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Continue Learning (Library page, derived client-side from Plans)
+   ========================================================================== */
+.continue-learning-progress {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: -4px 0 12px;
+}
+
+.continue-learning-group {
+  margin-bottom: 14px;
+}
+
+.continue-learning-group:last-child {
+  margin-bottom: 0;
+}
+
+.continue-learning-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin: 0 0 8px;
+}
+
+.continue-learning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.continue-learning-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.continue-learning-row:hover {
+  border-color: var(--color-primary);
+}
+
+.continue-learning-title {
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-learning-plan {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
    Sources / Browser Bookmarks (de-emphasized)
    ========================================================================== */
 .sources-section {

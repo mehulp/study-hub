@@ -6,6 +6,8 @@ import { SignupPage } from "./pages/SignupPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { BoardsPage } from "./pages/BoardsPage";
 import { BoardPage } from "./pages/BoardPage";
+import { PlansPage } from "./pages/PlansPage";
+import { PlanDetailPage } from "./pages/PlanDetailPage";
 import { InviteAcceptPage } from "./pages/InviteAcceptPage";
 
 export function App() {
@@ -17,6 +19,8 @@ export function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<LibraryPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/plans/:planId" element={<PlanDetailPage />} />
             <Route path="/boards" element={<BoardsPage />} />
             <Route path="/board/:boardId" element={<BoardPage />} />
             <Route path="/invite/:token" element={<InviteAcceptPage />} />

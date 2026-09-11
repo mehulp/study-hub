@@ -93,60 +93,86 @@ Both real demo accounts have `first_name` set (Decision #73: owner is "Mehul", r
 21. Log out, go to `/login` — confirm the same auth-card styling, "Welcome back" heading,
     and a "New here? Create account" link back to signup
 
+## Learning Plans (roadmap Phase 1, Decision #85)
+
+22. Click **Plans** in the sidebar → with zero plans, confirm the empty state ("No learning
+    plans yet") and a "+ Create your first plan" button
+23. Create a plan (name + optional description) → confirm it appears as a card showing
+    "0 resources"
+24. Open the plan → click "Add Resources" → search/select a few resources → confirm they
+    appear in the plan's item list immediately, each with a Status dropdown (default
+    "Not Started"), a Priority dropdown, and a target-date picker
+25. Reopen "Add Resources" → confirm items already on this plan are excluded from the list
+    entirely (same pattern as Board's own Add Resources, Decision #70)
+26. Change one item's status to "In Progress" and set a target date within the next 7 days;
+    mark a second item "Completed" → go to **Library** → confirm a **"Continue Learning"**
+    section appears, showing "N of M resources completed across your plans," an
+    **"In Progress"** group with the first item, and a **"Due This Week"** group also
+    showing it (an item can appear in both — that's expected, not a bug)
+27. Click a Continue Learning row → confirms it navigates to that item's plan
+28. Click "Remove" on a plan item → confirm (browser confirm dialog) → confirm it
+    disappears from the plan's list immediately, and the *underlying resource itself* still
+    exists in your Library (Remove only unlinks it from the plan)
+29. Delete the plan itself ("Delete Plan," confirm dialog) → confirm you land back on the
+    Plans list and the plan is gone → confirm the resources that were in it are **still
+    present** in your Library (deleting a plan never deletes the underlying resources)
+30. With zero plans again, confirm the **Continue Learning** section is entirely absent
+    from the Library page (not an empty state — it just doesn't render)
+
 ## Board management (owner side — Decision #70)
 
-22. As **owner**, open the "System Design Fundamentals" board — confirm a
+31. As **owner**, open the "System Design Fundamentals" board — confirm a
     "You own this board" status line and an "Add Resources" button (owner-only), and every
     item row has a "Remove" button
-23. Click "Add Resources" → filter by title (e.g. "LeetCode") → confirm only items **not**
+32. Click "Add Resources" → filter by title (e.g. "LeetCode") → confirm only items **not**
     already on this board show up at all (not just disabled) → select one, "Add Selected"
     → confirm it appears in the board's item list immediately, no reload
-24. Reopen "Add Resources," filter for the item you just added → confirm it's no longer
+33. Reopen "Add Resources," filter for the item you just added → confirm it's no longer
     offered (it's already on the board)
-25. Click "Remove" on an item → confirm (browser confirm dialog) → confirm it disappears
+34. Click "Remove" on an item → confirm (browser confirm dialog) → confirm it disappears
     from the list immediately
 
 ## Inviting a second person to an existing board (Decision #76)
 
-26. As **owner**, open "System Design Fundamentals" → click **"Invite"** (next to "Add
+35. As **owner**, open "System Design Fundamentals" → click **"Invite"** (next to "Add
     Resources") → enter a different email → "Send invite" → confirm an invite link is
     shown (same pattern as the original Share flow)
-27. Go back to the **Boards** page → confirm the board card now says
+36. Go back to the **Boards** page → confirm the board card now says
     "Shared with 2 people" and lists the new email as `(pending)` alongside the existing
     `accepted` grant
-28. As the **receiver** role (viewer), confirm the "Invite" button does **not** render on
+37. As the **receiver** role (viewer), confirm the "Invite" button does **not** render on
     the board page — invite stays owner-only, same as "Add Resources" and "Remove"
-29. Click "Invite" again and enter the **same email** you just invited in step 26 → confirm
+38. Click "Invite" again and enter the **same email** you just invited in step 35 → confirm
     a friendly inline error ("This board is already shared with that email") shows in the
     dialog, and the dialog stays open (doesn't just close on failure) — Decision #77
 
 ## Access-control checks (the parts most worth being paranoid about)
 
-30. As the receiver (viewer role), confirm there's genuinely no way to add/edit/delete/
+39. As the receiver (viewer role), confirm there's genuinely no way to add/edit/delete/
     remove items on a shared board — no such buttons render at all
-31. Try opening a board URL you don't have access to (grab an id from the owner's board,
+40. Try opening a board URL you don't have access to (grab an id from the owner's board,
     try it from an account with no grant) → should show a human-readable error state, not
     leak that the board exists or show a raw stack trace
-32. Log out → confirm redirected to `/login`; refresh the page while logged in → confirm
+41. Log out → confirm redirected to `/login`; refresh the page while logged in → confirm
     session persists (doesn't bounce to login)
 
 ## Responsive layout
 
-33. Resize the browser (or use devtools device emulation) to ~900px wide → confirm the
+42. Resize the browser (or use devtools device emulation) to ~900px wide → confirm the
     sidebar collapses and a "☰ Menu" toggle button appears in its place; click it → sidebar
     opens inline; click again (or navigate) → it closes
-34. Resize to ~400px (a phone width) → confirm no horizontal scrolling anywhere, the header
+43. Resize to ~400px (a phone width) → confirm no horizontal scrolling anywhere, the header
     brand text doesn't overlap the "+ Add Resource" button (it shrinks to just a "+" icon
     below ~640px), and stat cards/resource rows/dialogs all reflow to fit without clipping
 
 ## Empty-state / edge cases
 
-35. **Browser Bookmarks** section (under "Sources / Integrations") — should show its empty
+44. **Browser Bookmarks** section (under "Sources / Integrations") — should show its empty
     state ("No browser bookmarks synced yet") on every account, since the extension isn't
     part of this flow
-36. A brand-new signup with zero data — confirm every section shows its correct, friendly
+45. A brand-new signup with zero data — confirm every section shows its correct, friendly
     empty state rather than erroring (Study Resources, Browser Bookmarks, Your Boards,
-    Shared With Me all have their own, e.g. "No study resources yet" with a
+    Shared With Me, Plans all have their own, e.g. "No study resources yet" with a
     "+ Add your first resource" button), and that **"Select all" is disabled** rather than
     clickable against zero items
 

@@ -103,3 +103,30 @@ export interface SharedBoardResponse {
   accepted_at: string;
   item_count: number;
 }
+
+// Learning Plans (roadmap Phase 1, Decision #85).
+export type PlanItemStatus = "not_started" | "in_progress" | "completed" | "skipped";
+export type Priority = "low" | "medium" | "high";
+
+export interface PlanItemResponse {
+  plan_id: string;
+  item_id: string;
+  title: string;
+  url: string;
+  tags: string[];
+  status: PlanItemStatus;
+  order_index: number | null;
+  priority: Priority | null;
+  target_date: string | null;
+  estimated_effort_minutes: number | null;
+  added_at: string;
+}
+
+export interface PlanResponse {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  items: PlanItemResponse[];
+}

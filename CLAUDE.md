@@ -241,12 +241,11 @@ still accurate before relying on it for fast-changing facts (see below).
   mockup (global header search, Boards as a sidebar widget, Profile/Settings pages) were
   explicitly discussed and declined — see Decision #83's own reasoning. Verified live
   against the real 70-item demo account across list/grid view, both dialogs, and mobile.
-- **Next-stage roadmap — agreed, not yet built.** Full evaluation and phased plan now live
-  in `docs/study-hub-architecture.md`'s "Near-Term Direction" section (superseded its
-  earlier, now-stale 5-item version). In order: (1) Learning Plans + Continue Learning/This
-  Week, new tables in Items' own schema, not a new service; (2) a first real deployment
-  pass, pulled forward to right after Phase 1 rather than left until the end — re-verify
-  current hosting options/pricing at that point, the old Render note is stale; (3) Learning
+- **Next-stage roadmap.** Full evaluation and phased plan live in
+  `docs/study-hub-architecture.md`'s "Near-Term Direction" section. Order: (1) Learning
+  Plans + Continue Learning/This Week; (2) a first real deployment pass, pulled forward to
+  right after Phase 1 rather than left until the end — re-verify current hosting
+  options/pricing at that point, the old Render note is stale; (3) Learning
   completion/takeaways + Topic-level progress, extending `items` directly via the existing
   `PATCH`; (4) Interview Prep Track — a content decision, not new architecture, using the
   already-curated 70 resources grouped by existing tags; (5) GitHub push, after Phase 1-3
@@ -254,8 +253,20 @@ still accurate before relying on it for fast-changing facts (see below).
   queue + Related resources (client-side, no spaced repetition, no embeddings); (7) Async
   URL metadata enrichment via FastAPI `BackgroundTasks` — no queue/worker/broker. Postgres
   full-text search, Redis, and semantic/vector search are explicitly **not** scheduled —
-  reactive only, triggered by a named condition, not built speculatively. Decision Log not
-  yet updated for any of this — logged only once each phase is actually implemented.
+  reactive only, triggered by a named condition, not built speculatively.
+- **Phase 1 — Learning Plans + Continue Learning/This Week — ✅ Done (Decision #85).**
+  `learning_plans`/`plan_items` tables added to Items' own schema (not a new service) —
+  `plan_items.item_id` is a real FK, a concrete payoff of that call, unlike Board's
+  cross-service soft reference. 8 new owner-scoped endpoints (`/plans`, registered before
+  Items' existing `/{item_id}` routes — same ordering fix Decision #68 already made once
+  for Board). New pages: `PlansPage`, `PlanDetailPage`, `AddItemsToPlanDialog`,
+  `CreatePlanDialog`; a "Continue Learning" section on the Library page (In Progress + Due
+  This Week groups, a completion-count line), derived entirely client-side from plans
+  already fetched — no new aggregation endpoint. Deliberately scoped out of this first
+  pass: drag-to-reorder and an estimated-effort input (the columns exist and round-trip
+  through the API already; the UI for them is real work saved for a later pass). 56 Items
+  tests pass (22 new); `tsc -b`/lint clean; verified live through the real Gateway and a
+  full Playwright pass against the real owner account.
 - **X/Twitter source label + optional Image URL field — ✅ Done (Decision #84).** Prompted
   by a real workflow: saving X/Twitter threads that read like full articles, where the
   images can't be copied as text. `x.com`/`twitter.com`/`chatgpt.com`/`claude.ai` added to

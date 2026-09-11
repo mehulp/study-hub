@@ -132,6 +132,46 @@ def auth_headers(auth_identity):
     return {"Authorization": f"Bearer {auth_identity['access_token']}"}
 
 
+@pytest.fixture()
+def other_identity(auth_service):
+    """A second real user, same shape as auth_identity — function-scoped
+    (not session-scoped like auth_identity) since it exists purely to be
+    "someone else" for cross-owner tests, torn down after each test that
+    uses it rather than living for the whole session."""
+    email = f"items-test-other-{uuid.uuid4()}@example.com"
+    password = "correcthorsebatterystaple"
+
+    signup_response = httpx.post(
+        f"{AUTH_TEST_URL}/signup", json={"email": email, "password": password}
+    )
+    user_id = signup_response.json()["id"]
+
+    login_response = httpx.post(
+        f"{AUTH_TEST_URL}/login", json={"email": email, "password": password}
+    )
+    access_token = login_response.json()["access_token"]
+
+    yield {"user_id": user_id, "access_token": access_token}
+
+    subprocess.run(
+        [
+            "docker", "compose", "exec", "-T", "postgres",
+            "psql", "-U", "study_hub", "-d", "study_hub_test",
+            "-c", f"DELETE FROM auth.refresh_tokens WHERE user_id = '{user_id}'; "
+                  f"DELETE FROM auth.users WHERE id = '{user_id}';",
+        ],
+        cwd=_ITEMS_DIR.parent.parent,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@pytest.fixture()
+def other_headers(other_identity):
+    return {"Authorization": f"Bearer {other_identity['access_token']}"}
+
+
 @pytest.fixture(scope="session")
 def service_identity(auth_service):
     """Registers a real OAuth client against the real Auth subprocess (via

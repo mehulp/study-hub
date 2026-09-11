@@ -135,6 +135,17 @@ export function CheckIcon({ className, size }: IconProps) {
   );
 }
 
+export function ChecklistIcon({ className, size }: IconProps) {
+  return (
+    <svg {...base(size)} className={className} aria-hidden="true">
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <path d="m3 6 1.5 1.5L7 5" />
+      <path d="m3 12 1.5 1.5L7 11" />
+      <path d="m3 18 1.5 1.5L7 17" />
+    </svg>
+  );
+}
+
 export function MenuIcon({ className, size }: IconProps) {
   return (
     <svg {...base(size)} className={className} aria-hidden="true">

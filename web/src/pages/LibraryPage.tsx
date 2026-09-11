@@ -3,7 +3,8 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { listItems, deleteItem } from "../api/items";
 import { listMyBoards, listSharedWithMe } from "../api/board";
-import type { ItemResponse, OwnedBoardResponse, SharedBoardResponse } from "../types/api";
+import { listPlans } from "../api/plans";
+import type { ItemResponse, OwnedBoardResponse, PlanResponse, SharedBoardResponse } from "../types/api";
 import { AppLayout } from "../layout/AppLayout";
 import { StudyResources } from "../components/StudyResources";
 import { ResourceFormDialog } from "../components/ResourceFormDialog";
@@ -11,6 +12,7 @@ import { BrowserBookmarks } from "../components/BrowserBookmarks";
 import { AffirmationWidget } from "../components/AffirmationWidget";
 import { StatCard } from "../components/StatCard";
 import { CornerNudge } from "../components/CornerNudge";
+import { ContinueLearning } from "../components/ContinueLearning";
 import { SelectionProvider } from "../dashboard/SelectionContext";
 import { ShareBar } from "../dashboard/ShareBar";
 import { filterAndSortResources, type SortOption } from "../lib/filterResources";
@@ -25,6 +27,7 @@ export function LibraryPage() {
   const [items, setItems] = useState<ItemResponse[] | null>(null);
   const [myBoards, setMyBoards] = useState<OwnedBoardResponse[] | null>(null);
   const [sharedBoards, setSharedBoards] = useState<SharedBoardResponse[] | null>(null);
+  const [plans, setPlans] = useState<PlanResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<FormTarget>(null);
   // Owned here (not inside StudyResources) so ShareBar's "Select all" can
@@ -46,6 +49,9 @@ export function LibraryPage() {
     listSharedWithMe()
       .then(setSharedBoards)
       .catch(() => setError("We couldn't load boards shared with you. Please try again."));
+    listPlans()
+      .then(setPlans)
+      .catch(() => setError("We couldn't load your plans. Please try again."));
   }, []);
 
   // Cross-page triggers, both using the same navigation-state mechanism
@@ -148,6 +154,8 @@ export function LibraryPage() {
               tone="gray"
             />
           </div>
+
+          {plans && <ContinueLearning plans={plans} />}
 
           <SelectionProvider>
             <ShareBar
