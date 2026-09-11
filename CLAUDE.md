@@ -132,8 +132,14 @@ still accurate before relying on it for fast-changing facts (see below).
   accepted) and an owner-side "Boards I've shared" (who has access, when). Needs new
   backend work first — Board service has no "list my boards" endpoint at all today, only
   create-one/get-one-by-id/add-item/invite/accept.
-- **Phase 4.** Seed a real demo account with genuinely good curated resources + a shared
-  board.
+- **Phase 4 — ✅ Done (Decision #67).** `mehulpatankar_owner@gmail.com` has 70 real
+  system-design study resources (ByteByteGo/Hello Interview/YouTube, curated from a
+  personal interview-prep checklist), a "System Design Fundamentals" board (48 items)
+  shared with `mehulpatankar_receiver@gmail.com` and already accepted. Reproducible via
+  `scripts/seed_demo_data.py` + `scripts/system_design_resources.csv` (curated, no
+  personal progress-tracking columns — the source `.xlsx` stays local, gitignored).
+  Credentials were shown once when the script ran; if lost, re-run the script (new random
+  passwords each time) or reset via Auth directly.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README
