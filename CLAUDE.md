@@ -123,15 +123,6 @@ still accurate before relying on it for fast-changing facts (see below).
   push happens. Verified live: all six Docker services healthy, rotated secret confirmed
   against Auth's real `/oauth/token`, `docker exec printenv` confirmed containers actually
   received the substituted values.
-- **Queued, after Phase 3 (not yet started):** the architecture doc's own
-  high-priority backlog item — neither side of a share can currently find their way back to
-  a board afterward. Two list views needed, board-level not flattened-URL-level (Board is
-  the real sharing/RBAC unit in this architecture — access grants, invites, and roles are
-  all board-scoped, and the owner-side view's "who has access to what, granted when" only
-  makes sense at that level, not per-URL): a recipient-side "Shared with me" (boards
-  accepted) and an owner-side "Boards I've shared" (who has access, when). Needs new
-  backend work first — Board service has no "list my boards" endpoint at all today, only
-  create-one/get-one-by-id/add-item/invite/accept.
 - **Phase 4 — ✅ Done (Decision #67).** `mehulpatankar_owner@gmail.com` has 70 real
   system-design study resources (ByteByteGo/Hello Interview/YouTube, curated from a
   personal interview-prep checklist), a "System Design Fundamentals" board (48 items)
@@ -140,6 +131,48 @@ still accurate before relying on it for fast-changing facts (see below).
   personal progress-tracking columns — the source `.xlsx` stays local, gitignored).
   Credentials were shown once when the script ran; if lost, re-run the script (new random
   passwords each time) or reset via Auth directly.
+- **Board-visibility backlog item — ✅ Done (Decision #68).** `GET /board/mine` (owner:
+  boards owned, item counts, per-grant status) and `GET /board/shared-with-me` (recipient:
+  boards with an accepted grant), registered before `GET /{board_id}` in `main.py` — order
+  matters, see Decision #68. Web UI: `MyBoards.tsx`/`SharedWithMe.tsx` on the dashboard,
+  with the share flow refreshing "Boards I've Shared" immediately on a new share. 37 Board
+  tests pass (some pre-existing intermittent subprocess-startup flakiness, same category
+  seen in Auth/Items earlier — isolated re-runs and full clean re-runs both confirm it's
+  not caused by this change). Verified live against the real Phase 4 demo data.
+- **Complete local testing pass — ✅ Done.** All 5 backend suites verified (auth 38, items
+  32, board 37, connectors 13, gateway 17 — Connectors/Gateway never had venvs set up
+  before this pass; two real `.env.example` gaps found and fixed, `TWITTER_CLIENT_*` in
+  connectors and `CORS_ALLOWED_ORIGINS` in gateway — both read unconditionally at import
+  time even when unused, so a fresh clone's tests would fail without them; see
+  `daily-startup.md`'s "Per-service venvs and .env" section). Real browser verification via
+  Playwright + headless Chromium, confirmed working end to end (owner dashboard, tag
+  filtering, logout/login, receiver's read-only board view with genuinely no edit controls
+  rendered, zero console errors) — **this sandbox's headless-browser blocker from Phase 2
+  is resolved**: system deps (`libnspr4` etc.) are now installed via `sudo npx playwright
+  install --with-deps chromium`, run once by the user; reinstall the npm package with
+  `npm install --no-save playwright` each session (not saved to `package.json` — it's a
+  verification tool, not an app dependency).
+- **Manual-testing findings, round 1 — ✅ Done (Decisions #9 partial supersession, #70,
+  #71).** Three real gaps found during the user's own click-through: (1) `ShareBar`'s
+  "Select all" now disables with zero items instead of being clickable against nothing;
+  (2) owner-side board management — `AddItemsToBoardDialog.tsx` (excludes already-on-board
+  items from the list, not just from what the server would accept) + a per-item Remove
+  button on `BoardPage.tsx`, both owner-only, a Viewer still sees zero controls; (3) the
+  receiver's side now shows who shared a board with them (`boards.owner_email`,
+  denormalized via Auth's `/me` at creation time — new `services/board/app/auth_client.py`,
+  migration `0002_add_owner_email.py` with a one-time backfill for the pre-existing demo
+  board). `docs/manual-testing-checklist.md` created so the checklist doesn't need
+  re-scrolling chat history each round. All verified live via Playwright against the real
+  Phase 4 accounts (add 48→49, remove 49→48, owner_email correct on both display
+  locations); 38 Board tests pass.
+- **Daily affirmation widget — ✅ Done (Decision #72).** `AffirmationWidget.tsx`, a static
+  curated array (~18 entries, safely-attributed quotes + unattributed proverbs + originals,
+  no risky misattribution), cycling every 2.5 minutes client-side, never immediately
+  repeating. No backend/DB/external API — explicitly declined in favor of the static option
+  (same proportionality pattern as Decisions #15/#47/#51). Sits at the top of the
+  dashboard, right below the header. Verified: selection logic unit-tested (10k trials, no
+  browser needed), real refresh timing confirmed live via Playwright's `page.clock`
+  fast-forward rather than actually waiting 2.5 minutes.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README

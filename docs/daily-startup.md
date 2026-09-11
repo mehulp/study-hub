@@ -43,6 +43,35 @@ cd services/auth && ./venv/bin/python create_oauth_client.py connectors-service 
 already-running Postgres volume you're pointing at. `TWITTER_CLIENT_*` vars can stay blank
 unless you're actually testing the Twitter OAuth flow.
 
+### Per-service venvs and .env (only needed to run a service's tests outside Docker)
+
+Each service needs its own venv and `.env` — Docker itself doesn't need any of this, only
+`./venv/bin/python -m pytest` does:
+
+```bash
+for svc in auth items board connectors gateway; do
+  (cd services/$svc && python3 -m venv venv && ./venv/bin/pip install -q -r requirements.txt -r requirements-dev.txt && cp .env.example .env)
+done
+```
+
+Two services' `.env` need one more thing beyond what `.env.example` copies, because their
+app code reads an env var unconditionally at import time even when the feature it's for
+isn't being exercised:
+
+- **connectors/.env**: add blank `TWITTER_CLIENT_ID=` / `TWITTER_CLIENT_SECRET=` /
+  `TWITTER_REDIRECT_URI=` lines — `app/twitter_client.py` reads these at module load
+  regardless of whether any test touches the Twitter connector.
+- **gateway/.env**: add `CORS_ALLOWED_ORIGINS=http://localhost:5173` — `app/main.py` reads
+  it the same way.
+
+Then run one service's suite with `cd services/<name> && ./venv/bin/python -m pytest -q`,
+or all five with `bash run-tests.sh` (Postgres must be up first).
+
+**Known flakiness:** an isolated test occasionally fails with "Invalid or expired access
+token" — a pre-existing timing issue in how the session-scoped Auth/Items test subprocess
+fixtures start up, not a real bug. It's never reproduced on an immediate re-run of the same
+test or the full suite; if you hit it, just re-run.
+
 ## Morning: starting up for the day
 
 ```bash
