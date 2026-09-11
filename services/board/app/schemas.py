@@ -12,6 +12,7 @@ class BoardResponse(BaseModel):
     id: uuid.UUID
     owner_user_id: uuid.UUID
     owner_email: str | None
+    owner_first_name: str | None
     name: str
     created_at: datetime
 
@@ -38,6 +39,7 @@ class BoardWithItemsResponse(BaseModel):
     id: uuid.UUID
     owner_user_id: uuid.UUID
     owner_email: str | None
+    owner_first_name: str | None
     name: str
     created_at: datetime
     role: str
@@ -67,6 +69,7 @@ class SharedBoardResponse(BaseModel):
     name: str
     owner_user_id: uuid.UUID
     owner_email: str | None
+    owner_first_name: str | None
     role: str
     accepted_at: datetime
     item_count: int

@@ -17,6 +17,10 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # Nullable: existing users predate this column, and any signup caller
+    # that doesn't supply one (every other service's test fixtures, e.g.)
+    # still works -- only the real signup *form* always collects it.
+    first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

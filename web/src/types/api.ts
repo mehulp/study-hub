@@ -5,6 +5,7 @@
 export interface UserResponse {
   id: string;
   email: string;
+  first_name: string | null;
   created_at: string;
 }
 
@@ -40,6 +41,7 @@ export interface BoardResponse {
   id: string;
   owner_user_id: string;
   owner_email: string | null;
+  owner_first_name: string | null;
   name: string;
   created_at: string;
 }
@@ -60,6 +62,7 @@ export interface BoardWithItemsResponse {
   id: string;
   owner_user_id: string;
   owner_email: string | null;
+  owner_first_name: string | null;
   name: string;
   created_at: string;
   role: BoardRole;
@@ -95,6 +98,7 @@ export interface SharedBoardResponse {
   name: string;
   owner_user_id: string;
   owner_email: string | null;
+  owner_first_name: string | null;
   role: BoardRole;
   accepted_at: string;
   item_count: number;

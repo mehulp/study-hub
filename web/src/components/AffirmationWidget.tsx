@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QuoteIcon } from "../lib/icons";
 
 // Static, curated content (Decision #72) -- no backend, no external
 // dependency, matches how this project treats content that doesn't need to
@@ -24,7 +25,7 @@ const AFFIRMATIONS: string[] = [
   "One more topic understood is one more question you won't fear.",
 ];
 
-const REFRESH_INTERVAL_MS = 150_000; // 2.5 minutes -- middle of the requested 2-3 minute range.
+const REFRESH_INTERVAL_MS = 120_000; // 2 minutes 
 
 function randomIndexExcluding(length: number, exclude: number): number {
   if (length <= 1) return 0;
@@ -45,6 +46,7 @@ export function AffirmationWidget() {
 
   return (
     <div className="affirmation-widget">
+      <QuoteIcon className="affirmation-quote-icon" size={18} />
       <span className="affirmation-text">{AFFIRMATIONS[index]}</span>
     </div>
   );

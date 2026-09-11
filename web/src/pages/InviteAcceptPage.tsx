@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { acceptInvite } from "../api/board";
+import { AppLayout } from "../layout/AppLayout";
 
 // By the time this renders, ProtectedRoute has already guaranteed the
 // visitor is logged in (bouncing them through /login and back via the
@@ -25,8 +26,8 @@ export function InviteAcceptPage() {
   }, [token, navigate]);
 
   return (
-    <div className="dashboard">
-      {error ? <p className="error">{error}</p> : <p>Accepting invite...</p>}
-    </div>
+    <AppLayout>
+      {error ? <p className="error">{error}</p> : <p className="loading-state">Accepting invite...</p>}
+    </AppLayout>
   );
 }

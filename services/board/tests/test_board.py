@@ -29,6 +29,23 @@ def test_create_board(client, owner_headers, owner_identity):
     assert body["name"] == "Test Board"
     assert body["owner_user_id"] == owner_identity["user_id"]
     assert body["owner_email"] == owner_identity["email"]
+    # owner_identity signs up without first_name (matches every other
+    # service's test fixtures, Decision #73) -- confirms the field is
+    # honestly null, not silently defaulted to something else.
+    assert body["owner_first_name"] is None
+
+
+def test_create_board_includes_owner_first_name_when_set(client):
+    from tests.conftest import _create_real_user, _delete_user
+
+    named_owner = _create_real_user(first_name="Priya")
+    try:
+        headers = {"Authorization": f"Bearer {named_owner['access_token']}"}
+        response = create_board(client, headers)
+        assert response.status_code == 201
+        assert response.json()["owner_first_name"] == "Priya"
+    finally:
+        _delete_user(named_owner["user_id"])
 
 
 def test_get_board_as_owner(client, owner_headers):
@@ -217,6 +234,51 @@ def test_create_invite_success(client, owner_headers):
     assert len(body["invite_token"]) >= 32
 
 
+def test_create_invite_rejects_duplicate_pending_invite_for_same_email(client, owner_headers):
+    board = create_board(client, owner_headers).json()
+    first = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "someone@example.com"}, headers=owner_headers
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "someone@example.com"}, headers=owner_headers
+    )
+    assert second.status_code == 409
+
+    # Case-insensitivity: same email, different casing, still rejected.
+    third = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "SOMEONE@example.com"}, headers=owner_headers
+    )
+    assert third.status_code == 409
+
+
+def test_create_invite_rejects_duplicate_after_acceptance(
+    client, owner_headers, other_headers, other_user
+):
+    board, accept_response = invite_and_accept(
+        client, owner_headers, other_headers, other_user["email"]
+    )
+    assert accept_response.status_code == 200
+
+    response = client.post(
+        f"/{board['id']}/invite", json={"invited_email": other_user["email"]}, headers=owner_headers
+    )
+    assert response.status_code == 409
+
+
+def test_create_invite_allows_different_emails_on_same_board(client, owner_headers):
+    board = create_board(client, owner_headers).json()
+    first = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "one@example.com"}, headers=owner_headers
+    )
+    second = client.post(
+        f"/{board['id']}/invite", json={"invited_email": "two@example.com"}, headers=owner_headers
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+
 def test_accept_invite_grants_viewer_access(client, owner_headers, other_headers, other_user):
     board, accept_response = invite_and_accept(
         client, owner_headers, other_headers, other_user["email"]
@@ -399,6 +461,23 @@ def test_list_shared_with_me_returns_accepted_boards(client, owner_headers, othe
     assert body[0]["owner_email"] == owner_identity["email"]
 
 
+def test_list_shared_with_me_includes_owner_first_name(client, other_headers, other_user):
+    from tests.conftest import _create_real_user, _delete_user
+
+    named_owner = _create_real_user(first_name="Priya")
+    try:
+        named_owner_headers = {"Authorization": f"Bearer {named_owner['access_token']}"}
+        board, _ = invite_and_accept(client, named_owner_headers, other_headers, other_user["email"])
+
+        response = client.get("/shared-with-me", headers=other_headers)
+        body = response.json()
+        assert len(body) == 1
+        assert body[0]["id"] == board["id"]
+        assert body[0]["owner_first_name"] == "Priya"
+    finally:
+        _delete_user(named_owner["user_id"])
+
+
 def test_create_board_returns_503_when_auth_service_fails(client, owner_headers, monkeypatch):
     # Same shape as add_item's Items-unavailable handling: an unreachable
     # dependency must surface as a coherent 503, not a bare 500 or a board
@@ -406,10 +485,10 @@ def test_create_board_returns_503_when_auth_service_fails(client, owner_headers,
     import app.main as board_main
     from app.auth_client import AuthServiceError
 
-    async def broken_fetch_own_email(bearer_token):
+    async def broken_fetch_own_identity(bearer_token):
         raise AuthServiceError("simulated outage")
 
-    monkeypatch.setattr(board_main, "fetch_own_email", broken_fetch_own_email)
+    monkeypatch.setattr(board_main, "fetch_own_identity", broken_fetch_own_identity)
 
     response = client.post("/", json={"name": "x"}, headers=owner_headers)
     assert response.status_code == 503

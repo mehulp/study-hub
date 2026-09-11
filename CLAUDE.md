@@ -173,6 +173,43 @@ still accurate before relying on it for fast-changing facts (see below).
   dashboard, right below the header. Verified: selection logic unit-tested (10k trials, no
   browser needed), real refresh timing confirmed live via Playwright's `page.clock`
   fast-forward rather than actually waiting 2.5 minutes.
+- **UI/UX redesign — ✅ Done (Decisions #73–#75).** Full visual rework per
+  `docs/study-hub-ui-redesign-spec.md`: `first_name` added to signup/auth (Decision #73,
+  nullable, "Welcome back" fallback for pre-existing null-first_name accounts) and
+  extended to `boards.owner_first_name` (Decision #74, same denormalize-at-creation
+  pattern as `owner_email`); a CSS design-token system, shared `AppLayout`/`AppHeader`/
+  `Sidebar` shell replacing the old `.dashboard` markup, a dedicated `/boards` page, and
+  restyled Library/Board/auth pages and dialogs (Decision #75). Search, tag popularity,
+  source/domain labels, and dashboard stat counts all computed client-side from
+  already-loaded data — no new backend endpoints, per the spec's own explicit constraint.
+  Responsive down to ~400px. Verified: `tsc -b` clean, lint shows only the two
+  pre-existing accepted warnings, full 146-test backend suite passes (Auth/Board/Items/
+  Connectors/Gateway), and a live Playwright run against a fresh owner/receiver pair
+  confirmed the full redesigned flow end to end (signup-with-name, personalized welcome,
+  stat cards, search, tag chips, Add/Edit/Share dialogs, Boards page, owner and viewer
+  board pages with correct RBAC-gated controls, unauthorized-board error state, mobile
+  layout) — one real mobile header-overlap bug found and fixed during that pass.
+- **Invite-to-existing-board — ✅ Done (Decision #76).** A new "Invite" button on the
+  owner's `BoardPage.tsx` opens `InviteToBoardDialog.tsx`, letting an owner add another
+  person to a board that already exists — previously the only "Share" flow always created
+  a brand-new board. No backend change: `POST /{board_id}/invite` already existed and was
+  already tested, just never reachable from the UI for an existing board. Verified live:
+  Invite button is owner-only, generates a real invite link, and the Boards page
+  immediately shows "Shared with 2 people" with the new grant `(pending)`. Follow-up
+  (Decision #77): `create_invite` now rejects a second invite to the same email on the
+  same board with a `409` ("This board is already shared with that email") unless the
+  prior invite expired — closes the duplicate-grant gap Decision #76 itself flagged and
+  made newly reachable. 43 Board tests pass; verified live that the friendly error shows
+  inline in `InviteToBoardDialog.tsx` without the dialog closing.
+- **"Select all" tag/search-filter bug — ✅ Fixed (Decision #78).** User-found bug:
+  "Select all" ignored the active tag/search filter and always selected all 70 resources.
+  Filter state moved up from `StudyResources.tsx` into `LibraryPage.tsx` (new shared
+  `lib/filterResources.ts`), so `ShareBar`'s "Select all" now selects only the
+  currently-visible (filtered) items — verified live: filtering to a 3-item tag then
+  "Select all" selects exactly 3, not 70; selection persists if the filter is cleared
+  afterward. Side effect, noted deliberately: browser-bookmark items are no longer swept
+  into "Select all" (previously included via the old unfiltered `items` list) — individual
+  bookmark checkboxes are unaffected.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README

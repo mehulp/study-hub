@@ -156,8 +156,11 @@ def load_resources() -> list[dict]:
     return resources
 
 
-def signup_and_login(email: str, password: str) -> str:
-    r = requests.post(f"{GATEWAY}/auth/signup", json={"email": email, "password": password})
+def signup_and_login(email: str, password: str, first_name: str | None = None) -> str:
+    payload = {"email": email, "password": password}
+    if first_name:
+        payload["first_name"] = first_name
+    r = requests.post(f"{GATEWAY}/auth/signup", json=payload)
     if r.status_code not in (201, 409):
         print(f"signup {email}: {r.status_code} {r.text}")
     r = requests.post(f"{GATEWAY}/auth/login", json={"email": email, "password": password})
@@ -172,8 +175,8 @@ def main() -> None:
     resources = load_resources()
     print(f"Loaded {len(resources)} distinct resources from {CSV_PATH.name}")
 
-    owner_token = signup_and_login(OWNER_EMAIL, owner_password)
-    receiver_token = signup_and_login(RECEIVER_EMAIL, receiver_password)
+    owner_token = signup_and_login(OWNER_EMAIL, owner_password, first_name="Mehul")
+    receiver_token = signup_and_login(RECEIVER_EMAIL, receiver_password, first_name="Study Partner")
     owner_headers = {"Authorization": f"Bearer {owner_token}"}
 
     created_ids, fundamentals_ids = [], []

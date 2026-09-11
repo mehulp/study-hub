@@ -23,6 +23,9 @@ class Board(Base):
     # forward always has one (create_board fails rather than proceed without
     # it, same pattern as add_item's 503-on-Items-unavailable).
     owner_email: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Same denormalization as owner_email (Decision #71), extended now that
+    # /me also returns first_name (Decision #75).
+    owner_first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

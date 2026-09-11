@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { listItems } from "../api/items";
 import { addItemToBoard } from "../api/board";
 import type { ItemResponse } from "../types/api";
 
 interface AddItemsToBoardDialogProps {
   boardId: string;
+  boardName: string;
   existingItemIds: Set<string>;
   onClose: () => void;
   onAdded: () => void;
@@ -18,6 +19,7 @@ interface AddItemsToBoardDialogProps {
 // checkbox in a picker is a UX bug even if the backend would shrug it off).
 export function AddItemsToBoardDialog({
   boardId,
+  boardName,
   existingItemIds,
   onClose,
   onAdded,
@@ -31,19 +33,14 @@ export function AddItemsToBoardDialog({
   useEffect(() => {
     listItems()
       .then(setItems)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load resources"));
+      .catch(() => setError("We couldn't load your resources. Please try again."));
   }, []);
 
-  const addableItems = useMemo(() => {
-    if (!items) return [];
-    return items.filter((item) => !existingItemIds.has(item.id));
-  }, [items, existingItemIds]);
-
-  const visibleItems = useMemo(() => {
-    const needle = filterText.trim().toLowerCase();
-    if (!needle) return addableItems;
-    return addableItems.filter((item) => item.title.toLowerCase().includes(needle));
-  }, [addableItems, filterText]);
+  const addableItems = (items ?? []).filter((item) => !existingItemIds.has(item.id));
+  const needle = filterText.trim().toLowerCase();
+  const visibleItems = needle
+    ? addableItems.filter((item) => item.title.toLowerCase().includes(needle))
+    : addableItems;
 
   function toggle(id: string) {
     setSelectedIds((current) => {
@@ -63,19 +60,19 @@ export function AddItemsToBoardDialog({
       }
       onAdded();
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add items");
+    } catch {
+      setError("We couldn't add those resources. Please try again.");
       setSaving(false);
     }
   }
 
   return (
     <div className="dialog-backdrop">
-      <div className="dialog dialog-wide">
-        <h3>Add resources to this board</h3>
+      <div className="dialog dialog-wide" role="dialog" aria-labelledby="add-items-title">
+        <h3 id="add-items-title">Add resources to "{boardName}"</h3>
 
         {error && <p className="error">{error}</p>}
-        {!items && !error && <p>Loading...</p>}
+        {!items && !error && <p className="loading-state">Loading resources...</p>}
 
         {items && addableItems.length === 0 && (
           <p className="empty-state">Every one of your resources is already on this board.</p>
@@ -84,11 +81,12 @@ export function AddItemsToBoardDialog({
         {items && addableItems.length > 0 && (
           <>
             <input
-              type="text"
-              placeholder="Filter by title..."
+              type="search"
+              placeholder="Search resources..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               disabled={saving}
+              aria-label="Search resources"
             />
             <div className="add-items-list">
               {visibleItems.map((item) => (
@@ -99,7 +97,18 @@ export function AddItemsToBoardDialog({
                     onChange={() => toggle(item.id)}
                     disabled={saving}
                   />
-                  {item.title}
+                  <div>
+                    {item.title}
+                    {item.tags.length > 0 && (
+                      <div className="add-items-row-tags">
+                        {item.tags.map((tag) => (
+                          <span key={tag} className="tag-chip tag-chip-small">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </label>
               ))}
             </div>
@@ -107,15 +116,16 @@ export function AddItemsToBoardDialog({
         )}
 
         <div className="dialog-actions">
-          <button type="button" onClick={onClose} disabled={saving}>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button
             type="button"
+            className="btn btn-primary"
             onClick={handleAdd}
             disabled={saving || selectedIds.size === 0}
           >
-            {saving ? "Adding..." : `Add ${selectedIds.size || ""} Selected`}
+            {saving ? "Adding..." : `Add ${selectedIds.size} resource${selectedIds.size === 1 ? "" : "s"}`}
           </button>
         </div>
       </div>

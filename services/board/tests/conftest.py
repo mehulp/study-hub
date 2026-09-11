@@ -102,11 +102,14 @@ def items_service(auth_service):
         process.wait(timeout=10)
 
 
-def _create_real_user() -> dict:
+def _create_real_user(first_name: str | None = None) -> dict:
     email = f"board-test-user-{uuid.uuid4()}@example.com"
     password = "correcthorsebatterystaple"
 
-    signup = httpx.post(f"{AUTH_TEST_URL}/signup", json={"email": email, "password": password})
+    payload = {"email": email, "password": password}
+    if first_name:
+        payload["first_name"] = first_name
+    signup = httpx.post(f"{AUTH_TEST_URL}/signup", json=payload)
     user_id = signup.json()["id"]
     login = httpx.post(f"{AUTH_TEST_URL}/login", json={"email": email, "password": password})
     access_token = login.json()["access_token"]

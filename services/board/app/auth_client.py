@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 
 import httpx
 from dotenv import load_dotenv
@@ -14,13 +15,21 @@ class AuthServiceError(Exception):
     Same shape as ItemsServiceError in items_client.py."""
 
 
-async def fetch_own_email(bearer_token: str) -> str:
-    """Resolves the caller's own email via Auth's /me — never anyone
+@dataclass
+class OwnIdentity:
+    email: str
+    first_name: str | None
+
+
+async def fetch_own_identity(bearer_token: str) -> OwnIdentity:
+    """Resolves the caller's own identity via Auth's /me — never anyone
     else's. A user asking Auth about themselves is a fundamentally
     different, much smaller capability than a general "resolve any user id
-    to an email" lookup would be (Decision #70) — no new authority is
+    to an identity" lookup would be (Decision #70) — no new authority is
     granted to Board here, just one more thing a normal user token can do
-    what it could already do."""
+    what it could already do. Returns both email (Decision #71) and
+    first_name (Decision #75) from the same /me call — Auth's response
+    already carries both since Decision #73, no second round trip."""
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -33,4 +42,5 @@ async def fetch_own_email(bearer_token: str) -> str:
 
     if response.status_code != 200:
         raise AuthServiceError(f"Auth returned {response.status_code}")
-    return response.json()["email"]
+    body = response.json()
+    return OwnIdentity(email=body["email"], first_name=body.get("first_name"))

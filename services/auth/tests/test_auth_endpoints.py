@@ -39,6 +39,40 @@ def test_signup_rejects_short_password(client):
     assert response.status_code == 422
 
 
+def test_signup_without_first_name_returns_null(client):
+    # Every other service's test fixtures sign up this way -- must keep
+    # working unmodified (UI redesign spec, Decision #73).
+    response = signup(client)
+    assert response.status_code == 201
+    assert response.json()["first_name"] is None
+
+
+def test_signup_accepts_first_name(client):
+    response = client.post(
+        "/signup",
+        json={"email": "user@example.com", "password": "correcthorsebatterystaple", "first_name": "Mehul"},
+    )
+    assert response.status_code == 201
+    assert response.json()["first_name"] == "Mehul"
+
+
+def test_signup_trims_first_name(client):
+    response = client.post(
+        "/signup",
+        json={"email": "user@example.com", "password": "correcthorsebatterystaple", "first_name": "  Mehul  "},
+    )
+    assert response.status_code == 201
+    assert response.json()["first_name"] == "Mehul"
+
+
+def test_signup_rejects_blank_first_name(client):
+    response = client.post(
+        "/signup",
+        json={"email": "user@example.com", "password": "correcthorsebatterystaple", "first_name": "   "},
+    )
+    assert response.status_code == 422
+
+
 def test_login_success_returns_tokens(client):
     signup(client)
     response = login(client)
@@ -217,6 +251,32 @@ def test_me_returns_current_user(client):
     assert response.status_code == 200
     assert response.json()["id"] == signup_body["id"]
     assert response.json()["email"] == signup_body["email"]
+
+
+def test_me_returns_first_name(client):
+    client.post(
+        "/signup",
+        json={"email": "named@example.com", "password": "correcthorsebatterystaple", "first_name": "Mehul"},
+    )
+    tokens = client.post(
+        "/login", json={"email": "named@example.com", "password": "correcthorsebatterystaple"}
+    ).json()
+
+    response = client.get("/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert response.status_code == 200
+    assert response.json()["first_name"] == "Mehul"
+
+
+def test_me_returns_null_first_name_for_existing_style_users(client):
+    # Simulates a user who existed before this column -- signup without
+    # first_name still produces a perfectly valid /me response.
+    signup_body = signup(client).json()
+    assert signup_body["first_name"] is None
+    tokens = login(client).json()
+
+    response = client.get("/me", headers={"Authorization": f"Bearer {tokens['access_token']}"})
+    assert response.status_code == 200
+    assert response.json()["first_name"] is None
 
 
 def test_me_without_token_is_rejected(client):

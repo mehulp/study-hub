@@ -11,10 +11,10 @@ export async function login(email: string, password: string): Promise<TokenRespo
   return tokens;
 }
 
-export async function signup(email: string, password: string): Promise<UserResponse> {
+export async function signup(email: string, password: string, firstName: string): Promise<UserResponse> {
   return apiRequest<UserResponse>("/auth/signup", {
     method: "POST",
-    body: { email, password },
+    body: { email, password, first_name: firstName },
     auth: false,
   });
 }

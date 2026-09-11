@@ -43,12 +43,12 @@ export function ShareDialog({ itemIds, onClose, onShared }: ShareDialogProps) {
 
   return (
     <div className="dialog-backdrop">
-      <div className="dialog">
+      <div className="dialog" role="dialog" aria-labelledby="share-dialog-title">
         {step !== "done" && (
           <>
-            <h3>Share {itemIds.length} item{itemIds.length === 1 ? "" : "s"}</h3>
+            <h3 id="share-dialog-title">Share {itemIds.length} item{itemIds.length === 1 ? "" : "s"}</h3>
             <form onSubmit={handleSubmit}>
-              <label>
+              <label className="field">
                 Board name
                 <input
                   value={boardName}
@@ -57,7 +57,7 @@ export function ShareDialog({ itemIds, onClose, onShared }: ShareDialogProps) {
                   disabled={step === "sharing"}
                 />
               </label>
-              <label>
+              <label className="field">
                 Recipient email
                 <input
                   type="email"
@@ -69,10 +69,10 @@ export function ShareDialog({ itemIds, onClose, onShared }: ShareDialogProps) {
               </label>
               {error && <p className="error">{error}</p>}
               <div className="dialog-actions">
-                <button type="button" onClick={onClose} disabled={step === "sharing"}>
+                <button type="button" className="btn btn-secondary" onClick={onClose} disabled={step === "sharing"}>
                   Cancel
                 </button>
-                <button type="submit" disabled={step === "sharing"}>
+                <button type="submit" className="btn btn-primary" disabled={step === "sharing"}>
                   {step === "sharing" ? "Sharing..." : "Share"}
                 </button>
               </div>
@@ -81,14 +81,16 @@ export function ShareDialog({ itemIds, onClose, onShared }: ShareDialogProps) {
         )}
         {step === "done" && inviteLink && (
           <>
-            <h3>Board created</h3>
+            <h3 id="share-dialog-title">Board created</h3>
             <p>
               Send this link to <strong>{email}</strong> — they'll need an account (or to
               create one) to view the board.
             </p>
             <code className="invite-token">{inviteLink}</code>
             <div className="dialog-actions">
-              <button onClick={onClose}>Done</button>
+              <button className="btn btn-primary" onClick={onClose}>
+                Done
+              </button>
             </div>
           </>
         )}

@@ -47,14 +47,14 @@ export function ResourceFormDialog({ item, onClose, onSaved }: ResourceFormDialo
 
   return (
     <div className="dialog-backdrop">
-      <div className="dialog">
-        <h3>{isEdit ? "Edit resource" : "Add a study resource"}</h3>
+      <div className="dialog" role="dialog" aria-labelledby="resource-form-title">
+        <h3 id="resource-form-title">{isEdit ? "Edit resource" : "Add a study resource"}</h3>
         <form onSubmit={handleSubmit}>
-          <label>
+          <label className="field">
             Title
             <input value={title} onChange={(e) => setTitle(e.target.value)} required disabled={saving} />
           </label>
-          <label>
+          <label className="field">
             URL
             <input
               type="url"
@@ -64,7 +64,7 @@ export function ResourceFormDialog({ item, onClose, onSaved }: ResourceFormDialo
               disabled={saving}
             />
           </label>
-          <label>
+          <label className="field">
             Notes
             <textarea
               value={notes}
@@ -73,21 +73,22 @@ export function ResourceFormDialog({ item, onClose, onSaved }: ResourceFormDialo
               rows={3}
             />
           </label>
-          <label>
-            Tags (comma-separated)
+          <label className="field">
+            Tags
+            <span className="dialog-hint">Separate tags with commas.</span>
             <input
               value={tagsText}
               onChange={(e) => setTagsText(e.target.value)}
               disabled={saving}
-              placeholder="system design, distributed systems"
+              placeholder="system-design, distributed-systems"
             />
           </label>
           {error && <p className="error">{error}</p>}
           <div className="dialog-actions">
-            <button type="button" onClick={onClose} disabled={saving}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? "Saving..." : isEdit ? "Save changes" : "Add resource"}
             </button>
           </div>

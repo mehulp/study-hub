@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id, get_current_user_id_and_token, load_public_key
-from app.auth_client import fetch_own_email, AuthServiceError
+from app.auth_client import fetch_own_identity, AuthServiceError
 from app.db import get_db
 from app.items_client import fetch_item, ItemsServiceError
 from app.models import AccessGrant, Board, BoardItem
@@ -74,17 +74,23 @@ async def create_board(
     db: Session = Depends(get_db),
 ) -> Board:
     user_id, token = auth
-    # Denormalized at creation time (Decision #70) — a user asking Auth
-    # about themselves, not a new "resolve anyone's email" capability.
+    # Denormalized at creation time (Decision #70, extended by #75 to also
+    # capture first_name) — a user asking Auth about themselves, not a new
+    # "resolve anyone's identity" capability.
     try:
-        owner_email = await fetch_own_email(token)
+        identity = await fetch_own_identity(token)
     except AuthServiceError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Auth service is unavailable — try again shortly",
         )
 
-    board = Board(owner_user_id=user_id, owner_email=owner_email, name=payload.name)
+    board = Board(
+        owner_user_id=user_id,
+        owner_email=identity.email,
+        owner_first_name=identity.first_name,
+        name=payload.name,
+    )
     db.add(board)
     db.commit()
     db.refresh(board)
@@ -102,6 +108,7 @@ def _board_with_items_response(board: Board, role: str, db: Session) -> BoardWit
         id=board.id,
         owner_user_id=board.owner_user_id,
         owner_email=board.owner_email,
+        owner_first_name=board.owner_first_name,
         name=board.name,
         created_at=board.created_at,
         role=role,
@@ -169,6 +176,7 @@ def list_shared_with_me(
                 name=board.name,
                 owner_user_id=board.owner_user_id,
                 owner_email=board.owner_email,
+                owner_first_name=board.owner_first_name,
                 role=grant.role,
                 accepted_at=grant.accepted_at,
                 item_count=item_count,
@@ -280,11 +288,32 @@ def create_invite(
             status_code=status.HTTP_403_FORBIDDEN, detail="Only the board owner can invite"
         )
 
+    now = datetime.now(timezone.utc)
+    invited_email = payload.invited_email.lower()
+    # A still-valid grant (pending or already accepted) for this email on
+    # this board already exists — don't create a second, confusing one.
+    # Scoped to non-expired only: an expired pending invite shouldn't block
+    # re-inviting the same person.
+    existing = (
+        db.query(AccessGrant)
+        .filter(
+            AccessGrant.board_id == board.id,
+            AccessGrant.invited_email == invited_email,
+            AccessGrant.invite_token_expires_at >= now,
+        )
+        .first()
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This board is already shared with that email",
+        )
+
     token = generate_invite_token()
-    expires_at = datetime.now(timezone.utc) + INVITE_TOKEN_TTL
+    expires_at = now + INVITE_TOKEN_TTL
     grant = AccessGrant(
         board_id=board.id,
-        invited_email=payload.invited_email.lower(),
+        invited_email=invited_email,
         role="viewer",  # hardcoded — no role picker in v1 (Decision #10)
         invite_token_hash=hash_invite_token(token),
         invite_token_expires_at=expires_at,

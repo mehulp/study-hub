@@ -17,13 +17,21 @@ export function ShareBar({ allItemIds, onShared }: ShareBarProps) {
   return (
     <div className="share-bar">
       <span>{selectedIds.size} selected</span>
-      <button onClick={() => selectAll(allItemIds)} disabled={allItemIds.length === 0}>
+      <button
+        className="btn btn-secondary btn-sm"
+        onClick={() => selectAll(allItemIds)}
+        disabled={allItemIds.length === 0}
+      >
         Select all
       </button>
-      <button onClick={clear} disabled={selectedIds.size === 0}>
+      <button className="btn btn-secondary btn-sm" onClick={clear} disabled={selectedIds.size === 0}>
         Clear
       </button>
-      <button disabled={selectedIds.size === 0} onClick={() => setDialogOpen(true)}>
+      <button
+        className="btn btn-primary btn-sm"
+        disabled={selectedIds.size === 0}
+        onClick={() => setDialogOpen(true)}
+      >
         Share selected
       </button>
 
