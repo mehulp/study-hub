@@ -28,6 +28,21 @@ connected via the WSL extension, so that's the easiest place.
 
 Each service runs `alembic upgrade head` on container start, so migrations apply themselves.
 
+## First-time setup (fresh clone only)
+
+`docker compose up` reads `POSTGRES_PASSWORD` and `OAUTH_CLIENT_SECRET` from a root `.env`
+file (gitignored, Decision #66) — without it, Postgres itself won't start correctly.
+
+```bash
+cp .env.example .env
+# Generate a real OAUTH_CLIENT_SECRET (prints once, paste it into .env):
+cd services/auth && ./venv/bin/python create_oauth_client.py connectors-service "Connectors Service"
+```
+
+`POSTGRES_PASSWORD` can be any value — it only needs to match between `.env` and whatever
+already-running Postgres volume you're pointing at. `TWITTER_CLIENT_*` vars can stay blank
+unless you're actually testing the Twitter OAuth flow.
+
 ## Morning: starting up for the day
 
 ```bash

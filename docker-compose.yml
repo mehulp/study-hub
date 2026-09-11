@@ -3,7 +3,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: study_hub
-      POSTGRES_PASSWORD: study_hub_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: study_hub
     ports:
       - "5432:5432"
@@ -24,7 +24,7 @@ services:
       # ("postgres"), not "localhost" — the .env used for manual/local runs
       # is never copied into the image (see .dockerignore), so every var
       # the app needs is set explicitly here instead.
-      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:${POSTGRES_PASSWORD}@postgres:5432/study_hub
       JWT_PRIVATE_KEY_PATH: private_key.pem
       JWT_PUBLIC_KEY_PATH: public_key.pem
     depends_on:
@@ -42,7 +42,7 @@ services:
     ports:
       - "8002:8002"
     environment:
-      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:${POSTGRES_PASSWORD}@postgres:5432/study_hub
       # Service-to-service call inside the Compose network uses the
       # service name "auth" — the same URL a human would use is
       # localhost:8001, but that only resolves on the host, not from
@@ -65,7 +65,7 @@ services:
     ports:
       - "8003:8003"
     environment:
-      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:${POSTGRES_PASSWORD}@postgres:5432/study_hub
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
     depends_on:
@@ -87,14 +87,15 @@ services:
     ports:
       - "8004:8004"
     environment:
-      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:${POSTGRES_PASSWORD}@postgres:5432/study_hub
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
       OAUTH_CLIENT_ID: connectors-service
-      OAUTH_CLIENT_SECRET: 42aWvybVgmjbyTR-vW23_Tcge2sJeYVdjam1vPJ6Iig
-      # Unlike the internal secret above (ours, fully controlled), these
-      # come from the root .env file (gitignored) rather than being
-      # hardcoded here — X's client secret is tied to a real account.
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
+      # All three secrets below come from the root .env file (gitignored),
+      # not hardcoded here — see Decision #66 (supersedes #57's original
+      # "OAUTH_CLIENT_SECRET can stay hardcoded" reasoning, which assumed
+      # a private, local-only repo).
       TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID}
       TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET}
       TWITTER_REDIRECT_URI: ${TWITTER_REDIRECT_URI}

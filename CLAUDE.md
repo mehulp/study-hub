@@ -111,9 +111,27 @@ still accurate before relying on it for fast-changing facts (see below).
   link-paste) instead of the pre-fork one.
   **Still open, low-stakes:** the favicon is unbranded (default Vite icon, never said
   "Bookmarks Hub" to begin with, so not actually part of this cleanup).
-- **Phase 3.** Secrets hygiene: `OAUTH_CLIENT_SECRET` and `POSTGRES_PASSWORD` are currently
-  hardcoded in `docker-compose.yml` — move to `.env`, rotate the OAuth secret value.
-  (`TWITTER_CLIENT_SECRET` is no longer in scope here per Decision #61.)
+- **Phase 3 — ✅ Done (Decision #66).** `OAUTH_CLIENT_SECRET` and `POSTGRES_PASSWORD` moved
+  out of `docker-compose.yml` into a root `.env` (gitignored, joining `TWITTER_CLIENT_SECRET`'s
+  existing pattern) plus a tracked root `.env.example`. `OAUTH_CLIENT_SECRET` genuinely
+  rotated (regenerated via `services/auth/create_oauth_client.py`) — convenient timing,
+  since the `oauth_clients` table was empty after Decision #65's volume recreation, so
+  Connectors' auth to Items was actually broken until this fix, not just theoretically due
+  for rotation. `POSTGRES_PASSWORD` only relocated, value unchanged (not asked for, low
+  stakes). Decision #57 marked superseded — its "OAUTH_CLIENT_SECRET can stay hardcoded"
+  reasoning assumed a private local-only repo, which stops being true once Phase 6's GitHub
+  push happens. Verified live: all six Docker services healthy, rotated secret confirmed
+  against Auth's real `/oauth/token`, `docker exec printenv` confirmed containers actually
+  received the substituted values.
+- **Queued, after Phase 3 (not yet started):** the architecture doc's own
+  high-priority backlog item — neither side of a share can currently find their way back to
+  a board afterward. Two list views needed, board-level not flattened-URL-level (Board is
+  the real sharing/RBAC unit in this architecture — access grants, invites, and roles are
+  all board-scoped, and the owner-side view's "who has access to what, granted when" only
+  makes sense at that level, not per-URL): a recipient-side "Shared with me" (boards
+  accepted) and an owner-side "Boards I've shared" (who has access, when). Needs new
+  backend work first — Board service has no "list my boards" endpoint at all today, only
+  create-one/get-one-by-id/add-item/invite/accept.
 - **Phase 4.** Seed a real demo account with genuinely good curated resources + a shared
   board.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
