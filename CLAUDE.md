@@ -216,6 +216,12 @@ still accurate before relying on it for fast-changing facts (see below).
   No new infrastructure (no toast system) — just the button's own state. Verified live via
   Playwright with clipboard permissions granted: the exact link lands on the clipboard in
   both dialogs.
+- **Tag autocomplete in the resource form — ✅ Done (Decision #80).** As the user types in
+  the Tags field, a dropdown suggests matching existing tags (derived client-side from the
+  user's own resources, no new endpoint) — matches only the segment after the last comma,
+  excludes tags already added, picking one appends `", "` ready for the next tag. Free text
+  is still always accepted; suggestions are a convenience, not validation. Verified live
+  against the real 70-item/55-tag demo account.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README

@@ -4,6 +4,7 @@ import type { ItemResponse } from "../types/api";
 
 interface ResourceFormDialogProps {
   item?: ItemResponse; // present = edit mode, absent = create mode
+  existingTags: string[]; // for the tag-suggestions dropdown, not validation -- any text is still a valid tag
   onClose: () => void;
   onSaved: (item: ItemResponse) => void;
 }
@@ -15,17 +16,49 @@ function parseTags(text: string): string[] {
     .filter((tag) => tag.length > 0);
 }
 
+// Tags are comma-separated in one plain input (Decision #62's free-text
+// design), so "what's being typed right now" is just whatever's after the
+// last comma -- suggestions match against that segment alone, not the
+// whole field, and picking one replaces just that segment.
+function activeTagSegment(text: string): string {
+  const lastComma = text.lastIndexOf(",");
+  return (lastComma === -1 ? text : text.slice(lastComma + 1)).trim();
+}
+
+function applyTagSuggestion(text: string, suggestion: string): string {
+  const lastComma = text.lastIndexOf(",");
+  const prefix = lastComma === -1 ? "" : `${text.slice(0, lastComma + 1)} `;
+  return `${prefix}${suggestion}, `;
+}
+
 // Same dialog for create and edit (Decision #64 built PATCH specifically so
 // editing wasn't a second, separate flow to design) — `item` being present
 // is the only thing that switches which API call submit makes.
-export function ResourceFormDialog({ item, onClose, onSaved }: ResourceFormDialogProps) {
+export function ResourceFormDialog({ item, existingTags, onClose, onSaved }: ResourceFormDialogProps) {
   const isEdit = item !== undefined;
   const [title, setTitle] = useState(item?.title ?? "");
   const [url, setUrl] = useState(item?.url ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [tagsText, setTagsText] = useState(item?.tags.join(", ") ?? "");
+  const [tagsFocused, setTagsFocused] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeSegment = activeTagSegment(tagsText);
+  const lastComma = tagsText.lastIndexOf(",");
+  const completedTagsLower = (lastComma === -1 ? [] : parseTags(tagsText.slice(0, lastComma))).map((tag) =>
+    tag.toLowerCase(),
+  );
+  const tagSuggestions =
+    tagsFocused && activeSegment.length > 0
+      ? existingTags
+          .filter(
+            (tag) =>
+              tag.toLowerCase().startsWith(activeSegment.toLowerCase()) &&
+              !completedTagsLower.includes(tag.toLowerCase()),
+          )
+          .slice(0, 6)
+      : [];
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -76,12 +109,39 @@ export function ResourceFormDialog({ item, onClose, onSaved }: ResourceFormDialo
           <label className="field">
             Tags
             <span className="dialog-hint">Separate tags with commas.</span>
-            <input
-              value={tagsText}
-              onChange={(e) => setTagsText(e.target.value)}
-              disabled={saving}
-              placeholder="system-design, distributed-systems"
-            />
+            <div className="tag-input-wrap">
+              <input
+                value={tagsText}
+                onChange={(e) => setTagsText(e.target.value)}
+                onFocus={() => setTagsFocused(true)}
+                onBlur={() => setTagsFocused(false)}
+                disabled={saving}
+                placeholder="system-design, distributed-systems"
+                autoComplete="off"
+              />
+              {tagSuggestions.length > 0 && (
+                <div className="tag-suggestions" role="listbox">
+                  {tagSuggestions.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="tag-suggestion"
+                      role="option"
+                      aria-selected={false}
+                      // mousedown (not click/onClick) fires before the input's
+                      // blur, so the dropdown doesn't close out from under the
+                      // click and the suggestion still applies correctly.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setTagsText(applyTagSuggestion(tagsText, tag));
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </label>
           {error && <p className="error">{error}</p>}
           <div className="dialog-actions">

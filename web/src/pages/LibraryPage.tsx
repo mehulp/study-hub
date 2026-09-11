@@ -94,6 +94,7 @@ export function LibraryPage() {
   const browserItems = items?.filter((item) => item.source !== "manual") ?? [];
   const uniqueTopicCount = new Set(manualItems.flatMap((item) => item.tags)).size;
   const visibleManualItems = filterAndSortResources(manualItems, { activeTag, searchQuery, sortBy });
+  const existingTags = Array.from(new Set(manualItems.flatMap((item) => item.tags))).sort();
 
   return (
     <AppLayout>
@@ -150,6 +151,7 @@ export function LibraryPage() {
       {formTarget && (
         <ResourceFormDialog
           item={formTarget === "new" ? undefined : formTarget}
+          existingTags={existingTags}
           onClose={() => setFormTarget(null)}
           onSaved={handleSaved}
         />
