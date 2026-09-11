@@ -210,6 +210,12 @@ still accurate before relying on it for fast-changing facts (see below).
   afterward. Side effect, noted deliberately: browser-bookmark items are no longer swept
   into "Select all" (previously included via the old unfiltered `items` list) — individual
   bookmark checkboxes are unaffected.
+- **Copy-to-clipboard for invite links — ✅ Done (Decision #79).** New shared
+  `CopyableLink.tsx`, used by both `ShareDialog.tsx` and `InviteToBoardDialog.tsx`'s "done"
+  step — a "Copy" button next to the invite link, swaps to a checkmark + "Copied" for 2s.
+  No new infrastructure (no toast system) — just the button's own state. Verified live via
+  Playwright with clipboard permissions granted: the exact link lands on the clipboard in
+  both dialogs.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README

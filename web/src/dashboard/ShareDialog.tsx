@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { createBoard, addItemToBoard, createInvite } from "../api/board";
+import { CopyableLink } from "../components/CopyableLink";
 
 interface ShareDialogProps {
   itemIds: string[];
@@ -86,7 +87,7 @@ export function ShareDialog({ itemIds, onClose, onShared }: ShareDialogProps) {
               Send this link to <strong>{email}</strong> — they'll need an account (or to
               create one) to view the board.
             </p>
-            <code className="invite-token">{inviteLink}</code>
+            <CopyableLink value={inviteLink} />
             <div className="dialog-actions">
               <button className="btn btn-primary" onClick={onClose}>
                 Done
