@@ -20,8 +20,8 @@ _CONNECTORS_DIR = _GATEWAY_DIR.parent / "connectors"
 _CONNECTORS_VENV_PYTHON = _CONNECTORS_DIR / "venv" / "bin" / "python"
 
 TEST_DATABASE_URL = (
-    "postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password"
-    "@localhost:5432/bookmarks_hub_test"
+    "postgresql+psycopg://study_hub:study_hub_dev_password"
+    "@localhost:5432/study_hub_test"
 )
 AUTH_TEST_PORT = 8011
 AUTH_TEST_URL = f"http://127.0.0.1:{AUTH_TEST_PORT}"
@@ -245,9 +245,9 @@ def _clean_auth_test_db():
             "postgres",
             "psql",
             "-U",
-            "bookmarks_hub",
+            "study_hub",
             "-d",
-            "bookmarks_hub_test",
+            "study_hub_test",
             "-c",
             "TRUNCATE auth.users, auth.refresh_tokens, items.items, board.boards, board.board_items, connectors.connections CASCADE;",
         ],

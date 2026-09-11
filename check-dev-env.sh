@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev environment check for the Bookmarks Hub project
+# Dev environment check for the Study Hub project
 # Run this INSIDE your WSL2 Ubuntu terminal, not PowerShell.
 # Usage: bash check-dev-env.sh   (or ask Claude Code to run it)
 

@@ -2,14 +2,15 @@
 
 The whole stack is containerized (Decision #35), so daily startup is one command, not a per-service manual routine.
 
-**Only one of bookmarks-hub / mp-project-study-hub runs at a time.** `mp-project-study-hub`
-(`/home/mehul/projects/mp-project-study-hub`) is a separate project cloned from this one, deliberately sharing
-the same ports rather than each getting its own — simpler, and easier to shut down, at the cost of never
-running both simultaneously. `start-dev.sh` in both projects checks for this and refuses to start if the
-other one's containers are already up, rather than failing with a confusing Docker port-bind error.
+**Only one of mp-project-study-hub / bookmarks-hub runs at a time.** `bookmarks-hub`
+(`/home/mehul/projects/bookmarks-hub`) is the separate personal project this one was cloned
+from, deliberately sharing the same ports rather than each getting its own — simpler, and
+easier to shut down, at the cost of never running both simultaneously. `start-dev.sh` in
+both projects checks for this and refuses to start if the other one's containers are
+already up, rather than failing with a confusing Docker port-bind error.
 
 Run everything **inside the WSL2 Ubuntu terminal**, not PowerShell. The project lives at
-`/home/mehul/projects/bookmarks-hub` (inside WSL). Driving it from Windows would route every
+`/home/mehul/projects/mp-project-study-hub` (inside WSL). Driving it from Windows would route every
 file operation through the `\\wsl$` 9p filesystem — slow builds, and relative `build:` paths in
 `docker-compose.yml` misbehave. VS Code's integrated terminal is already an Ubuntu shell when
 connected via the WSL extension, so that's the easiest place.
@@ -34,7 +35,7 @@ Each service runs `alembic upgrade head` on container start, so migrations apply
 #    Wait until the whale icon stops animating.
 
 # 1. In the Ubuntu terminal (or VS Code's integrated terminal):
-cd /home/mehul/projects/bookmarks-hub
+cd /home/mehul/projects/mp-project-study-hub
 bash start-dev.sh
 ```
 
@@ -114,7 +115,7 @@ cd services/auth && ./venv/bin/pip install -r requirements-dev.txt
 
 ## Running tests
 
-All suites in sequence (creates `bookmarks_hub_test` if missing):
+All suites in sequence (creates `study_hub_test` if missing):
 
 ```bash
 bash run-tests.sh
@@ -137,7 +138,7 @@ docker compose up -d postgres
 Interactive session:
 
 ```bash
-docker exec -it bookmarks-hub-postgres-1 psql -U bookmarks_hub -d bookmarks_hub
+docker exec -it mp-project-study-hub-postgres-1 psql -U study_hub -d study_hub
 ```
 
 Useful commands once inside:
@@ -153,12 +154,12 @@ SELECT * FROM auth.users LIMIT 10;
 One-off query without entering the interactive shell:
 
 ```bash
-docker exec bookmarks-hub-postgres-1 psql -U bookmarks_hub -d bookmarks_hub -c "SELECT source, count(*) FROM items.items GROUP BY source;"
+docker exec mp-project-study-hub-postgres-1 psql -U study_hub -d study_hub -c "SELECT source, count(*) FROM items.items GROUP BY source;"
 ```
 
 GUI clients (DBeaver, TablePlus, pgAdmin) can connect directly too — Postgres's port is exposed to the host:
-- Host: `localhost`, Port: `5432`, Database: `bookmarks_hub`
-- User: `bookmarks_hub` / Password: `bookmarks_hub_dev_password` (from `docker-compose.yml`)
+- Host: `localhost`, Port: `5432`, Database: `study_hub`
+- User: `study_hub` / Password: `study_hub_dev_password` (from `docker-compose.yml`)
 
 ## Evening: shutting down
 

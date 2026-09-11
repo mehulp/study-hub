@@ -21,8 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // fetch actually update this component tree and trigger a redirect,
     // instead of the UI silently going stale while every request 401s.
     const handleLoggedOut = () => setIsAuthenticated(false);
-    window.addEventListener("bookmarks_hub:logged_out", handleLoggedOut);
-    return () => window.removeEventListener("bookmarks_hub:logged_out", handleLoggedOut);
+    window.addEventListener("study_hub:logged_out", handleLoggedOut);
+    return () => window.removeEventListener("study_hub:logged_out", handleLoggedOut);
   }, []);
 
   async function login(email: string, password: string) {

@@ -13,10 +13,10 @@ overall_status=0
 # only ever existed because of a one-off manual `createdb`, which doesn't
 # survive a volume reset (docker compose down -v, or a fresh clone). Ensured
 # here instead of relying on a human remembering to recreate it.
-if ! docker compose exec -T postgres psql -U bookmarks_hub -d bookmarks_hub -tc \
-    "SELECT 1 FROM pg_database WHERE datname = 'bookmarks_hub_test'" 2>/dev/null | grep -q 1; then
-  echo "Creating bookmarks_hub_test database (didn't exist)..."
-  docker compose exec -T postgres createdb -U bookmarks_hub bookmarks_hub_test
+if ! docker compose exec -T postgres psql -U study_hub -d study_hub -tc \
+    "SELECT 1 FROM pg_database WHERE datname = 'study_hub_test'" 2>/dev/null | grep -q 1; then
+  echo "Creating study_hub_test database (didn't exist)..."
+  docker compose exec -T postgres createdb -U study_hub study_hub_test
 fi
 
 run_suite() {

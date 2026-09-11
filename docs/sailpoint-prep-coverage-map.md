@@ -1,4 +1,4 @@
-# Bookmarks Hub × SailPoint — System Design Revision Notes
+# Study Hub × SailPoint — System Design Revision Notes
 
 **Purpose:** Not a syllabus checklist. This is revision material for the actual question an interview asks: *"tell me about a time you reasoned about X"* — answered with a real decision from this project, not a textbook definition. Kept in the SailPoint/IAM context this prep started from, since identity/access concepts are where this project genuinely overlaps most with that domain.
 

@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: bookmarks_hub
-      POSTGRES_PASSWORD: bookmarks_hub_dev_password
-      POSTGRES_DB: bookmarks_hub
+      POSTGRES_USER: study_hub
+      POSTGRES_PASSWORD: study_hub_dev_password
+      POSTGRES_DB: study_hub
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bookmarks_hub -d bookmarks_hub"]
+      test: ["CMD-SHELL", "pg_isready -U study_hub -d study_hub"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -24,7 +24,7 @@ services:
       # ("postgres"), not "localhost" — the .env used for manual/local runs
       # is never copied into the image (see .dockerignore), so every var
       # the app needs is set explicitly here instead.
-      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
       JWT_PRIVATE_KEY_PATH: private_key.pem
       JWT_PUBLIC_KEY_PATH: public_key.pem
     depends_on:
@@ -42,7 +42,7 @@ services:
     ports:
       - "8002:8002"
     environment:
-      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
       # Service-to-service call inside the Compose network uses the
       # service name "auth" — the same URL a human would use is
       # localhost:8001, but that only resolves on the host, not from
@@ -65,7 +65,7 @@ services:
     ports:
       - "8003:8003"
     environment:
-      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
     depends_on:
@@ -87,7 +87,7 @@ services:
     ports:
       - "8004:8004"
     environment:
-      DATABASE_URL: postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password@postgres:5432/bookmarks_hub
+      DATABASE_URL: postgresql+psycopg://study_hub:study_hub_dev_password@postgres:5432/study_hub
       AUTH_SERVICE_URL: http://auth:8001
       ITEMS_SERVICE_URL: http://items:8002
       OAUTH_CLIENT_ID: connectors-service

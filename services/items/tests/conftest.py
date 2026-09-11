@@ -16,8 +16,8 @@ _AUTH_DIR = _ITEMS_DIR.parent / "auth"
 _AUTH_VENV_PYTHON = _AUTH_DIR / "venv" / "bin" / "python"
 
 TEST_DATABASE_URL = (
-    "postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password"
-    "@localhost:5432/bookmarks_hub_test"
+    "postgresql+psycopg://study_hub:study_hub_dev_password"
+    "@localhost:5432/study_hub_test"
 )
 AUTH_TEST_PORT = 8012
 AUTH_TEST_URL = f"http://127.0.0.1:{AUTH_TEST_PORT}"
@@ -116,7 +116,7 @@ def auth_identity(auth_service):
     subprocess.run(
         [
             "docker", "compose", "exec", "-T", "postgres",
-            "psql", "-U", "bookmarks_hub", "-d", "bookmarks_hub_test",
+            "psql", "-U", "study_hub", "-d", "study_hub_test",
             "-c", f"DELETE FROM auth.refresh_tokens WHERE user_id = '{user_id}'; "
                   f"DELETE FROM auth.users WHERE id = '{user_id}';",
         ],
@@ -167,7 +167,7 @@ def service_identity(auth_service):
     subprocess.run(
         [
             "docker", "compose", "exec", "-T", "postgres",
-            "psql", "-U", "bookmarks_hub", "-d", "bookmarks_hub_test",
+            "psql", "-U", "study_hub", "-d", "study_hub_test",
             "-c", f"DELETE FROM auth.oauth_clients WHERE client_id = '{client_id}';",
         ],
         cwd=_ITEMS_DIR.parent.parent,

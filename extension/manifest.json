@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Bookmarks Hub Connector",
+  "name": "Study Hub Connector",
   "version": "1.0.0",
-  "description": "Syncs your browser bookmarks to Bookmarks Hub.",
+  "description": "Syncs your browser bookmarks to Study Hub.",
   "permissions": ["bookmarks", "storage"],
   "host_permissions": ["http://localhost:8000/*"],
   "action": {

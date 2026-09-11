@@ -292,7 +292,7 @@ def test_get_item_belonging_to_another_user_returns_404(client, auth_headers):
         subprocess.run(
             [
                 "docker", "compose", "exec", "-T", "postgres",
-                "psql", "-U", "bookmarks_hub", "-d", "bookmarks_hub_test",
+                "psql", "-U", "study_hub", "-d", "study_hub_test",
                 "-c", f"DELETE FROM auth.refresh_tokens WHERE user_id = '{other_user_id}'; "
                       f"DELETE FROM auth.users WHERE id = '{other_user_id}';",
             ],
@@ -323,7 +323,7 @@ def _create_other_user(client, created_item_id, verb):
         subprocess.run(
             [
                 "docker", "compose", "exec", "-T", "postgres",
-                "psql", "-U", "bookmarks_hub", "-d", "bookmarks_hub_test",
+                "psql", "-U", "study_hub", "-d", "study_hub_test",
                 "-c", f"DELETE FROM auth.refresh_tokens WHERE user_id = '{other_user_id}'; "
                       f"DELETE FROM auth.users WHERE id = '{other_user_id}';",
             ],

@@ -7,8 +7,8 @@ import sys
 # import time, and python-dotenv's load_dotenv() never overrides a variable
 # that's already set, so setting it here wins over .env.
 TEST_DATABASE_URL = (
-    "postgresql+psycopg://bookmarks_hub:bookmarks_hub_dev_password"
-    "@localhost:5432/bookmarks_hub_test"
+    "postgresql+psycopg://study_hub:study_hub_dev_password"
+    "@localhost:5432/study_hub_test"
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 

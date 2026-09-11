@@ -8,8 +8,8 @@ const GATEWAY_URL = "http://localhost:8000";
 // a JSON body today, not Set-Cookie); given that's the API actually built,
 // something client-side has to hold onto them to reuse across requests
 // and page reloads, and localStorage is the standard default for that.
-const ACCESS_TOKEN_KEY = "bookmarks_hub_access_token";
-const REFRESH_TOKEN_KEY = "bookmarks_hub_refresh_token";
+const ACCESS_TOKEN_KEY = "study_hub_access_token";
+const REFRESH_TOKEN_KEY = "study_hub_refresh_token";
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -32,7 +32,7 @@ export function clearTokens(): void {
   // change — React only re-renders in response to its own state changing —
   // so this event is the bridge: AuthContext listens for it and updates
   // its state, which is what lets ProtectedRoute notice and redirect.
-  window.dispatchEvent(new Event("bookmarks_hub:logged_out"));
+  window.dispatchEvent(new Event("study_hub:logged_out"));
 }
 
 async function readErrorDetail(response: Response, fallback: string): Promise<string> {
