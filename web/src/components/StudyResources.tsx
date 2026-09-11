@@ -2,7 +2,9 @@ import { useState } from "react";
 import type { ItemResponse } from "../types/api";
 import { useSelection } from "../dashboard/SelectionContext";
 import { resolveSourceInfo, type ResourceKind } from "../lib/sourceLabel";
-import { ArticleIcon, VideoIcon, LinkIcon } from "../lib/icons";
+import { tagHueClass } from "../lib/tagColor";
+import { formatDate } from "../lib/formatDate";
+import { ArticleIcon, VideoIcon, LinkIcon, DotsIcon, ListIcon, GridIcon } from "../lib/icons";
 import type { SortOption } from "../lib/filterResources";
 import { EmptyState } from "./EmptyState";
 
@@ -25,11 +27,58 @@ interface StudyResourcesProps {
 }
 
 const POPULAR_TAG_COUNT = 8;
+type ViewMode = "list" | "grid";
 
 function SourceIcon({ kind }: { kind: ResourceKind }) {
   if (kind === "video") return <VideoIcon className="resource-source-icon" size={16} />;
   if (kind === "article") return <ArticleIcon className="resource-source-icon" size={16} />;
   return <LinkIcon className="resource-source-icon" size={16} />;
+}
+
+function kindLabel(kind: ResourceKind): string {
+  if (kind === "video") return "Video";
+  if (kind === "article") return "Article";
+  return "Link";
+}
+
+// The "..." action menu (Decision #83, replacing the old expand-to-reveal
+// Edit/Delete buttons) -- shared between list and grid rows so Edit/Delete
+// are always one click away, not gated behind expanding a row first.
+function ResourceMenu({
+  open,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="row-menu-wrap">
+      <button
+        type="button"
+        className="row-menu-toggle"
+        aria-label="Resource actions"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={onToggle}
+      >
+        <DotsIcon size={18} />
+      </button>
+      {open && (
+        <div className="row-menu" role="menu">
+          <button role="menuitem" onClick={onEdit}>
+            Edit
+          </button>
+          <button role="menuitem" className="row-menu-danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Tags are multi-valued (Decision #62), so — unlike the old Twitter/Browser
@@ -54,11 +103,14 @@ export function StudyResources({
   const { isSelected, toggle } = useSelection();
   const [tagPanelOpen, setTagPanelOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   // Collapsed by default -- only ids in this set are expanded. At real
   // scale (70 items in the seeded demo account) showing every row's notes
-  // and Edit/Delete buttons at once turns the page into mostly scrolling,
-  // not reading. Tags stay visible either way so you can still scan/filter
-  // without expanding anything.
+  // at once turns the page into mostly scrolling, not reading. Tags stay
+  // visible either way so you can still scan/filter without expanding
+  // anything. Grid view has no expand/notes at all -- it's the compact
+  // overview mode, Edit/Delete/notes stay one click (or a view switch) away.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   function toggleExpanded(id: string) {
@@ -68,6 +120,10 @@ export function StudyResources({
       else next.add(id);
       return next;
     });
+  }
+
+  function toggleMenu(id: string) {
+    setOpenMenuId((current) => (current === id ? null : id));
   }
 
   if (items.length === 0) {
@@ -129,7 +185,9 @@ export function StudyResources({
         {visibleTagChips.map((tag) => (
           <button
             key={tag}
-            className={activeTag === tag ? "tag-chip tag-chip-active" : "tag-chip"}
+            className={
+              activeTag === tag ? "tag-chip tag-chip-active" : `tag-chip ${tagHueClass(tag)}`
+            }
             onClick={() => onActiveTagChange(activeTag === tag ? null : tag)}
           >
             {tag}
@@ -155,7 +213,9 @@ export function StudyResources({
             {tagPanelResults.map((tag) => (
               <button
                 key={tag}
-                className={activeTag === tag ? "tag-chip tag-chip-active" : "tag-chip"}
+                className={
+                  activeTag === tag ? "tag-chip tag-chip-active" : `tag-chip ${tagHueClass(tag)}`
+                }
                 onClick={() => {
                   onActiveTagChange(activeTag === tag ? null : tag);
                   setTagPanelOpen(false);
@@ -168,16 +228,89 @@ export function StudyResources({
         </div>
       )}
 
-      <div className="sort-select">
-        Sort by:
-        <select value={sortBy} onChange={(e) => onSortByChange(e.target.value as SortOption)}>
-          <option value="recent">Recently added</option>
-          <option value="title">Title A–Z</option>
-        </select>
+      <div className="resource-toolbar-row">
+        <div className="sort-select">
+          Sort by:
+          <select value={sortBy} onChange={(e) => onSortByChange(e.target.value as SortOption)}>
+            <option value="recent">Recently added</option>
+            <option value="title">Title A–Z</option>
+          </select>
+        </div>
+        <div className="view-toggle">
+          <button
+            type="button"
+            className={`view-toggle-btn${viewMode === "list" ? " active" : ""}`}
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+            aria-pressed={viewMode === "list"}
+          >
+            <ListIcon size={16} />
+          </button>
+          <button
+            type="button"
+            className={`view-toggle-btn${viewMode === "grid" ? " active" : ""}`}
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            aria-pressed={viewMode === "grid"}
+          >
+            <GridIcon size={16} />
+          </button>
+        </div>
       </div>
 
       {visibleItems.length === 0 ? (
         <p className="empty-state">No resources match your search and filters.</p>
+      ) : viewMode === "grid" ? (
+        <div className="resource-grid">
+          {visibleItems.map((item) => {
+            const source = resolveSourceInfo(item.url);
+            return (
+              <div key={item.id} className={`resource-card${isSelected(item.id) ? " selected" : ""}`}>
+                <div className="resource-card-top">
+                  <input
+                    type="checkbox"
+                    checked={isSelected(item.id)}
+                    onChange={() => toggle(item.id)}
+                    aria-label={`Select ${item.title}`}
+                  />
+                  <ResourceMenu
+                    open={openMenuId === item.id}
+                    onToggle={() => toggleMenu(item.id)}
+                    onEdit={() => {
+                      onEdit(item);
+                      setOpenMenuId(null);
+                    }}
+                    onDelete={() => {
+                      onDelete(item);
+                      setOpenMenuId(null);
+                    }}
+                  />
+                </div>
+                <div className="resource-header">
+                  <SourceIcon kind={source.kind} />
+                  <div className="resource-title-group">
+                    <a href={item.url} target="_blank" rel="noreferrer" className="resource-title">
+                      {item.title}
+                    </a>
+                    <div className="resource-source-label">
+                      {source.label} · {kindLabel(source.kind)}
+                    </div>
+                  </div>
+                </div>
+                {item.tags.length > 0 && (
+                  <div className="resource-tags">
+                    {item.tags.map((tag) => (
+                      <span key={tag} className={`tag-chip tag-chip-small ${tagHueClass(tag)}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <span className="resource-card-date">{formatDate(item.saved_at)}</span>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="resource-list">
           {visibleItems.map((item) => {
@@ -207,14 +340,14 @@ export function StudyResources({
                         {item.title}
                       </a>
                       <div className="resource-source-label">
-                        {source.label} · {source.kind === "video" ? "Video" : source.kind === "article" ? "Article" : "Link"}
+                        {source.label} · {kindLabel(source.kind)}
                       </div>
                     </div>
                   </div>
                   {item.tags.length > 0 && (
                     <div className="resource-tags">
                       {item.tags.map((tag) => (
-                        <span key={tag} className="tag-chip tag-chip-small">
+                        <span key={tag} className={`tag-chip tag-chip-small ${tagHueClass(tag)}`}>
                           {tag}
                         </span>
                       ))}
@@ -236,16 +369,21 @@ export function StudyResources({
                     </>
                   )}
                 </div>
-                {expanded && (
-                  <div className="resource-actions">
-                    <button className="btn btn-secondary btn-sm" onClick={() => onEdit(item)}>
-                      Edit
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onDelete(item)}>
-                      Delete
-                    </button>
-                  </div>
-                )}
+                <div className="resource-meta">
+                  <span className="resource-date">{formatDate(item.saved_at)}</span>
+                  <ResourceMenu
+                    open={openMenuId === item.id}
+                    onToggle={() => toggleMenu(item.id)}
+                    onEdit={() => {
+                      onEdit(item);
+                      setOpenMenuId(null);
+                    }}
+                    onDelete={() => {
+                      onDelete(item);
+                      setOpenMenuId(null);
+                    }}
+                  />
+                </div>
               </div>
             );
           })}

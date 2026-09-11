@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createItem, updateItem } from "../api/items";
 import type { ItemResponse } from "../types/api";
+import { tagDotClass } from "../lib/tagColor";
 
 interface ResourceFormDialogProps {
   item?: ItemResponse; // present = edit mode, absent = create mode
@@ -136,6 +137,7 @@ export function ResourceFormDialog({ item, existingTags, onClose, onSaved }: Res
                         setTagsText(applyTagSuggestion(tagsText, tag));
                       }}
                     >
+                      <span className={`tag-suggestion-dot ${tagDotClass(tag)}`} aria-hidden="true" />
                       {tag}
                     </button>
                   ))}

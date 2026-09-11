@@ -229,6 +229,18 @@ still accurate before relying on it for fast-changing facts (see below).
   `GET /board/shared-with-me` (no new endpoint). Verified live against both real demo
   accounts: receiver shows "0 Your Boards / 2 Shared With You," owner shows the reverse;
   5-card row confirmed clean at desktop and ~400px mobile.
+- **Cosmetic theme pass — ✅ Done (Decisions #82-83).** Welcome subtitle shortened to "Your
+  learning library." (dropped an implied subject-matter scope claim). Separately, prompted
+  by a mockup the user shared (not a live screenshot — visibly fabricated/dated wrong):
+  colored icon-in-circle stat cards, deterministic per-tag chip colors (hashed from the tag
+  string, `lib/tagColor.ts` — consistent across Study Resources, the popular-topics filter,
+  Add-to-board's dialog, and the tag-suggestions dropdown), a per-row date, a "..." row menu
+  replacing the old expand-to-reveal Edit/Delete, a list/grid view toggle, and a small
+  floating "corner nudge" card (Library page only, one static message per load, deliberately
+  not sharing `AffirmationWidget`'s rotation). Structural/out-of-scope parts of the same
+  mockup (global header search, Boards as a sidebar widget, Profile/Settings pages) were
+  explicitly discussed and declined — see Decision #83's own reasoning. Verified live
+  against the real 70-item demo account across list/grid view, both dialogs, and mobile.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README

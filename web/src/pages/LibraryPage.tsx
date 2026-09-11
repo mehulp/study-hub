@@ -10,9 +10,11 @@ import { ResourceFormDialog } from "../components/ResourceFormDialog";
 import { BrowserBookmarks } from "../components/BrowserBookmarks";
 import { AffirmationWidget } from "../components/AffirmationWidget";
 import { StatCard } from "../components/StatCard";
+import { CornerNudge } from "../components/CornerNudge";
 import { SelectionProvider } from "../dashboard/SelectionContext";
 import { ShareBar } from "../dashboard/ShareBar";
 import { filterAndSortResources, type SortOption } from "../lib/filterResources";
+import { BookIcon, TagIcon, BoardsIcon, UsersIcon, LinkIcon } from "../lib/icons";
 
 // null = closed, "new" = create mode, an item = edit mode for that item.
 type FormTarget = ItemResponse | "new" | null;
@@ -115,11 +117,36 @@ export function LibraryPage() {
       {items && (
         <>
           <div className="stat-cards">
-            <StatCard value={manualItems.length} label="Study Resources" />
-            <StatCard value={uniqueTopicCount} label="Unique Topics" />
-            <StatCard value={myBoards?.length ?? 0} label="Your Boards" />
-            <StatCard value={sharedBoards?.length ?? 0} label="Shared With You" />
-            <StatCard value={browserItems.length} label="Browser Bookmarks" />
+            <StatCard
+              value={manualItems.length}
+              label="Study Resources"
+              icon={<BookIcon size={20} />}
+              tone="purple"
+            />
+            <StatCard
+              value={uniqueTopicCount}
+              label="Unique Topics"
+              icon={<TagIcon size={20} />}
+              tone="amber"
+            />
+            <StatCard
+              value={myBoards?.length ?? 0}
+              label="Your Boards"
+              icon={<BoardsIcon size={20} />}
+              tone="blue"
+            />
+            <StatCard
+              value={sharedBoards?.length ?? 0}
+              label="Shared With You"
+              icon={<UsersIcon size={20} />}
+              tone="pink"
+            />
+            <StatCard
+              value={browserItems.length}
+              label="Browser Bookmarks"
+              icon={<LinkIcon size={20} />}
+              tone="gray"
+            />
           </div>
 
           <SelectionProvider>
@@ -161,6 +188,8 @@ export function LibraryPage() {
           onSaved={handleSaved}
         />
       )}
+
+      <CornerNudge />
     </AppLayout>
   );
 }

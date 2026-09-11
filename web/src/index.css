@@ -23,6 +23,25 @@
   --color-danger: #c54141;
   --color-danger-soft: #fff0f0;
 
+  /* A small accent palette (Decision #83) for the stat-card icons and the
+     per-tag color hashing -- same soft-bg/saturated-text pairing already
+     established by --color-success/-soft and --color-danger/-soft above,
+     just more hues, since tag coloring needs more than 2-3 to feel varied. */
+  --color-accent-amber: #b45309;
+  --color-accent-amber-soft: #fef3c7;
+  --color-accent-blue: #1d4ed8;
+  --color-accent-blue-soft: #dbeafe;
+  --color-accent-pink: #be185d;
+  --color-accent-pink-soft: #fce7f3;
+  --color-accent-rose: #be123c;
+  --color-accent-rose-soft: #ffe4e6;
+  --color-accent-indigo: #4338ca;
+  --color-accent-indigo-soft: #e0e7ff;
+  --color-accent-lime: #4d7c0f;
+  --color-accent-lime-soft: #ecfccb;
+  --color-accent-gray: #475569;
+  --color-accent-gray-soft: #f1f5f9;
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -576,15 +595,54 @@ a:focus-visible {
 }
 
 .stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
 }
 
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stat-card-icon-purple {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.stat-card-icon-amber {
+  background: var(--color-accent-amber-soft);
+  color: var(--color-accent-amber);
+}
+
+.stat-card-icon-blue {
+  background: var(--color-accent-blue-soft);
+  color: var(--color-accent-blue);
+}
+
+.stat-card-icon-pink {
+  background: var(--color-accent-pink-soft);
+  color: var(--color-accent-pink);
+}
+
+.stat-card-icon-gray {
+  background: var(--color-accent-gray-soft);
+  color: var(--color-accent-gray);
+}
+
 .stat-card-value {
   font-size: 24px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .stat-card-label {
@@ -650,6 +708,107 @@ a:focus-visible {
 .tag-chip-small:hover {
   border-color: var(--color-border);
   color: var(--color-text-secondary);
+}
+
+/* Deterministic per-tag color (lib/tagColor.ts's tagHueClass) -- applied to
+   a chip only while it's NOT the active filter (kept as separate classes,
+   chosen in JS, rather than fighting .tag-chip-active on CSS specificity),
+   and always applied to the small in-row tag chips, which have no
+   active/inactive state at all. */
+.tag-hue-0 {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: transparent;
+}
+
+.tag-hue-1 {
+  background: var(--color-accent-amber-soft);
+  color: var(--color-accent-amber);
+  border-color: transparent;
+}
+
+.tag-hue-2 {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border-color: transparent;
+}
+
+.tag-hue-3 {
+  background: var(--color-accent-pink-soft);
+  color: var(--color-accent-pink);
+  border-color: transparent;
+}
+
+.tag-hue-4 {
+  background: var(--color-accent-blue-soft);
+  color: var(--color-accent-blue);
+  border-color: transparent;
+}
+
+.tag-hue-5 {
+  background: var(--color-accent-rose-soft);
+  color: var(--color-accent-rose);
+  border-color: transparent;
+}
+
+.tag-hue-6 {
+  background: var(--color-accent-indigo-soft);
+  color: var(--color-accent-indigo);
+  border-color: transparent;
+}
+
+.tag-hue-7 {
+  background: var(--color-accent-lime-soft);
+  color: var(--color-accent-lime);
+  border-color: transparent;
+}
+
+.tag-hue-0:hover,
+.tag-hue-1:hover,
+.tag-hue-2:hover,
+.tag-hue-3:hover,
+.tag-hue-4:hover,
+.tag-hue-5:hover,
+.tag-hue-6:hover,
+.tag-hue-7:hover {
+  filter: brightness(0.96);
+  color: inherit;
+  border-color: transparent;
+}
+
+/* Same 8 hues as .tag-hue-N, but a solid dot instead of a pastel pill --
+   for the tag-suggestions dropdown's full-width rows, where a colored
+   background per row would be heavier than a small color cue needs to be. */
+.tag-dot-0 {
+  background: var(--color-primary);
+}
+
+.tag-dot-1 {
+  background: var(--color-accent-amber);
+}
+
+.tag-dot-2 {
+  background: var(--color-success);
+}
+
+.tag-dot-3 {
+  background: var(--color-accent-pink);
+}
+
+.tag-dot-4 {
+  background: var(--color-accent-blue);
+}
+
+.tag-dot-5 {
+  background: var(--color-accent-rose);
+}
+
+.tag-dot-6 {
+  background: var(--color-accent-indigo);
+}
+
+.tag-dot-7 {
+  background: var(--color-accent-lime);
 }
 
 .tag-more-panel {
@@ -782,11 +941,180 @@ a:focus-visible {
   text-decoration: none;
 }
 
-.resource-actions {
+.resource-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.resource-date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.row-menu-wrap {
+  position: relative;
+}
+
+.row-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.row-menu-toggle:hover {
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.row-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  min-width: 120px;
+  padding: 6px;
+  z-index: 20;
+}
+
+.row-menu button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.row-menu button:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.row-menu button.row-menu-danger:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ==========================================================================
+   Resource toolbar (sort + view toggle) and grid view
+   ========================================================================== */
+.resource-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.view-toggle-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.resource-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.resource-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.resource-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.resource-card-date {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   Corner nudge (small floating encouragement card, Library page only)
+   ========================================================================== */
+.corner-nudge {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  max-width: 220px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-md);
+  z-index: 15;
+}
+
+.corner-nudge-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.corner-nudge-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .corner-nudge {
+    display: none;
+  }
 }
 
 /* ==========================================================================
@@ -893,6 +1221,9 @@ a:focus-visible {
 }
 
 .tag-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   background: none;
   border: none;
@@ -902,6 +1233,14 @@ a:focus-visible {
   font-weight: 500;
   color: var(--color-text);
   cursor: pointer;
+}
+
+.tag-suggestion-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .tag-suggestion:hover,
@@ -1272,10 +1611,13 @@ a:focus-visible {
     flex-wrap: wrap;
   }
 
-  .resource-actions {
-    flex-direction: row;
+  .resource-meta {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .resource-grid {
+    grid-template-columns: 1fr;
   }
 
   .board-cards {

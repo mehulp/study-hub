@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listItems } from "../api/items";
 import { addItemToBoard } from "../api/board";
 import type { ItemResponse } from "../types/api";
+import { tagHueClass } from "../lib/tagColor";
 
 interface AddItemsToBoardDialogProps {
   boardId: string;
@@ -102,7 +103,7 @@ export function AddItemsToBoardDialog({
                     {item.tags.length > 0 && (
                       <div className="add-items-row-tags">
                         {item.tags.map((tag) => (
-                          <span key={tag} className="tag-chip tag-chip-small">
+                          <span key={tag} className={`tag-chip tag-chip-small ${tagHueClass(tag)}`}>
                             {tag}
                           </span>
                         ))}
