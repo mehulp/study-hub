@@ -1,0 +1,36 @@
+import os
+
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
+
+AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
+
+
+class AuthServiceError(Exception):
+    """Auth was unreachable, timed out, or returned something other than a
+    clean 200 — a real upstream problem, not something to swallow silently.
+    Same shape as ItemsServiceError in items_client.py."""
+
+
+async def fetch_own_email(bearer_token: str) -> str:
+    """Resolves the caller's own email via Auth's /me — never anyone
+    else's. A user asking Auth about themselves is a fundamentally
+    different, much smaller capability than a general "resolve any user id
+    to an email" lookup would be (Decision #70) — no new authority is
+    granted to Board here, just one more thing a normal user token can do
+    what it could already do."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{AUTH_SERVICE_URL}/me",
+                headers={"Authorization": f"Bearer {bearer_token}"},
+                timeout=5.0,
+            )
+    except httpx.HTTPError as exc:
+        raise AuthServiceError(f"Auth request failed: {exc}") from exc
+
+    if response.status_code != 200:
+        raise AuthServiceError(f"Auth returned {response.status_code}")
+    return response.json()["email"]

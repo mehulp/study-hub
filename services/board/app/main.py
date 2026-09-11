@@ -9,10 +9,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id, get_current_user_id_and_token, load_public_key
+from app.auth_client import fetch_own_email, AuthServiceError
 from app.db import get_db
 from app.items_client import fetch_item, ItemsServiceError
 from app.models import AccessGrant, Board, BoardItem
 from app.schemas import (
+    AccessGrantSummaryResponse,
     AddItemRequest,
     BoardItemResponse,
     BoardResponse,
@@ -20,6 +22,8 @@ from app.schemas import (
     CreateBoardRequest,
     InviteRequest,
     InviteResponse,
+    OwnedBoardResponse,
+    SharedBoardResponse,
 )
 from app.security import generate_invite_token, hash_invite_token, INVITE_TOKEN_TTL
 
@@ -64,12 +68,23 @@ def _get_board_with_role(board_id: uuid.UUID, user_id: uuid.UUID, db: Session) -
 
 
 @app.post("/", response_model=BoardResponse, status_code=status.HTTP_201_CREATED)
-def create_board(
+async def create_board(
     payload: CreateBoardRequest,
-    user_id: uuid.UUID = Depends(get_current_user_id),
+    auth: tuple[uuid.UUID, str] = Depends(get_current_user_id_and_token),
     db: Session = Depends(get_db),
 ) -> Board:
-    board = Board(owner_user_id=user_id, name=payload.name)
+    user_id, token = auth
+    # Denormalized at creation time (Decision #70) — a user asking Auth
+    # about themselves, not a new "resolve anyone's email" capability.
+    try:
+        owner_email = await fetch_own_email(token)
+    except AuthServiceError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth service is unavailable — try again shortly",
+        )
+
+    board = Board(owner_user_id=user_id, owner_email=owner_email, name=payload.name)
     db.add(board)
     db.commit()
     db.refresh(board)
@@ -86,11 +101,80 @@ def _board_with_items_response(board: Board, role: str, db: Session) -> BoardWit
     return BoardWithItemsResponse(
         id=board.id,
         owner_user_id=board.owner_user_id,
+        owner_email=board.owner_email,
         name=board.name,
         created_at=board.created_at,
         role=role,
         items=[BoardItemResponse.model_validate(i) for i in items],
     )
+
+
+# Registered before GET /{board_id}: FastAPI/Starlette matches routes in
+# registration order, and /{board_id} is typed as uuid.UUID — if it came
+# first, a request for /mine would structurally match that single-segment
+# pattern before ever reaching this literal route, then fail UUID coercion
+# on the string "mine" and 422 instead of hitting this handler at all.
+@app.get("/mine", response_model=list[OwnedBoardResponse])
+def list_my_boards(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> list[OwnedBoardResponse]:
+    boards = (
+        db.query(Board)
+        .filter(Board.owner_user_id == user_id)
+        .order_by(Board.created_at.desc())
+        .all()
+    )
+    result = []
+    for board in boards:
+        item_count = db.query(BoardItem).filter(BoardItem.board_id == board.id).count()
+        grants = (
+            db.query(AccessGrant)
+            .filter(AccessGrant.board_id == board.id)
+            .order_by(AccessGrant.created_at.asc())
+            .all()
+        )
+        result.append(
+            OwnedBoardResponse(
+                id=board.id,
+                name=board.name,
+                created_at=board.created_at,
+                item_count=item_count,
+                grants=[AccessGrantSummaryResponse.model_validate(g) for g in grants],
+            )
+        )
+    return result
+
+
+@app.get("/shared-with-me", response_model=list[SharedBoardResponse])
+def list_shared_with_me(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> list[SharedBoardResponse]:
+    grants = (
+        db.query(AccessGrant)
+        .filter(AccessGrant.user_id == user_id, AccessGrant.status == "accepted")
+        .order_by(AccessGrant.accepted_at.desc())
+        .all()
+    )
+    result = []
+    for grant in grants:
+        board = db.query(Board).filter(Board.id == grant.board_id).first()
+        if board is None:
+            continue
+        item_count = db.query(BoardItem).filter(BoardItem.board_id == board.id).count()
+        result.append(
+            SharedBoardResponse(
+                id=board.id,
+                name=board.name,
+                owner_user_id=board.owner_user_id,
+                owner_email=board.owner_email,
+                role=grant.role,
+                accepted_at=grant.accepted_at,
+                item_count=item_count,
+            )
+        )
+    return result
 
 
 @app.get("/{board_id}", response_model=BoardWithItemsResponse)

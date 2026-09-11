@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { listItems, deleteItem } from "../api/items";
-import type { ItemResponse } from "../types/api";
+import { listMyBoards, listSharedWithMe } from "../api/board";
+import type { ItemResponse, OwnedBoardResponse, SharedBoardResponse } from "../types/api";
 import { StudyResources } from "../components/StudyResources";
 import { ResourceFormDialog } from "../components/ResourceFormDialog";
 import { BrowserBookmarks } from "../components/BrowserBookmarks";
+import { MyBoards } from "../components/MyBoards";
+import { SharedWithMe } from "../components/SharedWithMe";
+import { AffirmationWidget } from "../components/AffirmationWidget";
 import { SelectionProvider } from "../dashboard/SelectionContext";
 import { ShareBar } from "../dashboard/ShareBar";
 
@@ -14,6 +18,8 @@ type FormTarget = ItemResponse | "new" | null;
 export function DashboardPage() {
   const { logout } = useAuth();
   const [items, setItems] = useState<ItemResponse[] | null>(null);
+  const [myBoards, setMyBoards] = useState<OwnedBoardResponse[] | null>(null);
+  const [sharedBoards, setSharedBoards] = useState<SharedBoardResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<FormTarget>(null);
 
@@ -21,6 +27,12 @@ export function DashboardPage() {
     listItems()
       .then(setItems)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load items"));
+    listMyBoards()
+      .then(setMyBoards)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your boards"));
+    listSharedWithMe()
+      .then(setSharedBoards)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load shared boards"));
   }, []);
 
   function handleSaved(saved: ItemResponse) {
@@ -56,12 +68,17 @@ export function DashboardPage() {
         <button onClick={() => logout()}>Log out</button>
       </header>
 
+      <AffirmationWidget />
+
       {error && <p className="error">{error}</p>}
       {!items && !error && <p>Loading...</p>}
 
       {items && (
         <SelectionProvider>
-          <ShareBar allItemIds={items.map((item) => item.id)} />
+          <ShareBar
+            allItemIds={items.map((item) => item.id)}
+            onShared={() => listMyBoards().then(setMyBoards).catch(() => {})}
+          />
           <section>
             <div className="section-header">
               <h2>Study Resources</h2>
@@ -78,6 +95,20 @@ export function DashboardPage() {
             <BrowserBookmarks items={browserItems} />
           </section>
         </SelectionProvider>
+      )}
+
+      {myBoards && (
+        <section>
+          <h2>Boards I've Shared</h2>
+          <MyBoards boards={myBoards} />
+        </section>
+      )}
+
+      {sharedBoards && (
+        <section>
+          <h2>Shared With Me</h2>
+          <SharedWithMe boards={sharedBoards} />
+        </section>
       )}
 
       {formTarget && (

@@ -4,6 +4,8 @@ import type {
   BoardItemResponse,
   BoardWithItemsResponse,
   InviteResponse,
+  OwnedBoardResponse,
+  SharedBoardResponse,
 } from "../types/api";
 
 export async function createBoard(name: string): Promise<BoardResponse> {
@@ -33,9 +35,21 @@ export async function addItemToBoard(boardId: string, itemId: string): Promise<B
   });
 }
 
+export async function removeItemFromBoard(boardId: string, itemId: string): Promise<void> {
+  await apiRequest<void>(`/board/${boardId}/items/${itemId}`, { method: "DELETE" });
+}
+
 export async function createInvite(boardId: string, invitedEmail: string): Promise<InviteResponse> {
   return apiRequest<InviteResponse>(`/board/${boardId}/invite`, {
     method: "POST",
     body: { invited_email: invitedEmail },
   });
+}
+
+export async function listMyBoards(): Promise<OwnedBoardResponse[]> {
+  return apiRequest<OwnedBoardResponse[]>("/board/mine");
+}
+
+export async function listSharedWithMe(): Promise<SharedBoardResponse[]> {
+  return apiRequest<SharedBoardResponse[]>("/board/shared-with-me");
 }

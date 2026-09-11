@@ -39,6 +39,7 @@ export interface ItemResponse {
 export interface BoardResponse {
   id: string;
   owner_user_id: string;
+  owner_email: string | null;
   name: string;
   created_at: string;
 }
@@ -58,6 +59,7 @@ export interface BoardItemResponse {
 export interface BoardWithItemsResponse {
   id: string;
   owner_user_id: string;
+  owner_email: string | null;
   name: string;
   created_at: string;
   role: BoardRole;
@@ -70,4 +72,30 @@ export interface InviteResponse {
   role: BoardRole;
   invite_token: string;
   expires_at: string;
+}
+
+export interface AccessGrantSummary {
+  invited_email: string;
+  status: "pending" | "accepted";
+  role: BoardRole;
+  created_at: string;
+  accepted_at: string | null;
+}
+
+export interface OwnedBoardResponse {
+  id: string;
+  name: string;
+  created_at: string;
+  item_count: number;
+  grants: AccessGrantSummary[];
+}
+
+export interface SharedBoardResponse {
+  id: string;
+  name: string;
+  owner_user_id: string;
+  owner_email: string | null;
+  role: BoardRole;
+  accepted_at: string;
+  item_count: number;
 }

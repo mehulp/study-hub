@@ -28,6 +28,7 @@ def test_create_board(client, owner_headers, owner_identity):
     body = response.json()
     assert body["name"] == "Test Board"
     assert body["owner_user_id"] == owner_identity["user_id"]
+    assert body["owner_email"] == owner_identity["email"]
 
 
 def test_get_board_as_owner(client, owner_headers):
@@ -299,3 +300,124 @@ def test_viewer_cannot_invite_others(client, owner_headers, other_headers, other
         f"/{board['id']}/invite", json={"invited_email": "third@example.com"}, headers=other_headers
     )
     assert response.status_code == 403
+
+
+def test_list_my_boards_without_token_rejected(client):
+    response = client.get("/mine")
+    assert response.status_code == 401
+
+
+def test_list_my_boards_empty_when_none_owned(client, owner_headers):
+    response = client.get("/mine", headers=owner_headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_my_boards_excludes_other_users_boards(client, owner_headers, other_headers):
+    create_board(client, other_headers, name="Not Yours")
+
+    response = client.get("/mine", headers=owner_headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_my_boards_returns_item_count(client, owner_headers, ingested_item):
+    board = create_board(client, owner_headers).json()
+    client.post(
+        f"/{board['id']}/items", json={"item_id": ingested_item["id"]}, headers=owner_headers
+    )
+
+    response = client.get("/mine", headers=owner_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["id"] == board["id"]
+    assert body[0]["item_count"] == 1
+
+
+def test_list_my_boards_includes_grants(client, owner_headers, other_headers, other_user):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+
+    response = client.get("/mine", headers=owner_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert len(body[0]["grants"]) == 1
+    grant = body[0]["grants"][0]
+    assert grant["invited_email"] == other_user["email"]
+    assert grant["status"] == "accepted"
+    assert grant["role"] == "viewer"
+    assert grant["accepted_at"] is not None
+
+
+def test_list_my_boards_shows_pending_grant_before_acceptance(client, owner_headers):
+    board = create_board(client, owner_headers).json()
+    client.post(
+        f"/{board['id']}/invite", json={"invited_email": "someone@example.com"}, headers=owner_headers
+    )
+
+    response = client.get("/mine", headers=owner_headers)
+    grant = response.json()[0]["grants"][0]
+    assert grant["status"] == "pending"
+    assert grant["accepted_at"] is None
+
+
+def test_list_shared_with_me_without_token_rejected(client):
+    response = client.get("/shared-with-me")
+    assert response.status_code == 401
+
+
+def test_list_shared_with_me_empty_when_no_accepted_invites(client, other_headers):
+    response = client.get("/shared-with-me", headers=other_headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_shared_with_me_excludes_pending_invites(client, owner_headers, other_headers):
+    board = create_board(client, owner_headers).json()
+    client.post(
+        f"/{board['id']}/invite", json={"invited_email": "not-accepted-yet@example.com"}, headers=owner_headers
+    )
+
+    # other_headers' user never accepted anything -- should see nothing.
+    response = client.get("/shared-with-me", headers=other_headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_shared_with_me_returns_accepted_boards(client, owner_headers, other_headers, other_user, owner_identity):
+    board, _ = invite_and_accept(client, owner_headers, other_headers, other_user["email"])
+
+    response = client.get("/shared-with-me", headers=other_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["id"] == board["id"]
+    assert body[0]["name"] == board["name"]
+    assert body[0]["role"] == "viewer"
+    assert body[0]["item_count"] == 0
+    assert body[0]["owner_email"] == owner_identity["email"]
+
+
+def test_create_board_returns_503_when_auth_service_fails(client, owner_headers, monkeypatch):
+    # Same shape as add_item's Items-unavailable handling: an unreachable
+    # dependency must surface as a coherent 503, not a bare 500 or a board
+    # silently created with no owner_email.
+    import app.main as board_main
+    from app.auth_client import AuthServiceError
+
+    async def broken_fetch_own_email(bearer_token):
+        raise AuthServiceError("simulated outage")
+
+    monkeypatch.setattr(board_main, "fetch_own_email", broken_fetch_own_email)
+
+    response = client.post("/", json={"name": "x"}, headers=owner_headers)
+    assert response.status_code == 503
+
+
+def test_list_shared_with_me_excludes_boards_owned_by_the_viewer(client, owner_headers):
+    create_board(client, owner_headers)
+
+    response = client.get("/shared-with-me", headers=owner_headers)
+    assert response.status_code == 200
+    assert response.json() == []

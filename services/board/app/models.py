@@ -18,6 +18,11 @@ class Board(Base):
     # Soft reference (Decision #14) — crosses into auth's schema.
     owner_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    # Denormalized from Auth's /me at creation time (Decision #70) — nullable
+    # at the DB level for pre-migration rows, but every board created going
+    # forward always has one (create_board fails rather than proceed without
+    # it, same pattern as add_item's 503-on-Items-unavailable).
+    owner_email: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

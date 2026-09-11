@@ -71,6 +71,21 @@ body {
   margin-bottom: 32px;
 }
 
+.affirmation-widget {
+  background: #f5f0ff;
+  border: 1px solid #d9c9ff;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.affirmation-text {
+  font-style: italic;
+  font-size: 14px;
+  color: #4a3b7a;
+}
+
 /* Twitter tiles */
 .tile-grid {
   display: grid;
@@ -156,6 +171,22 @@ body {
   min-width: 0;
 }
 
+.resource-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resource-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  width: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 .resource-title {
   font-weight: 600;
   text-decoration: none;
@@ -179,6 +210,54 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* Boards I've shared / shared with me */
+.board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.board-list-row {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.board-list-name {
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
+
+.board-list-meta {
+  font-size: 13px;
+  color: #666;
+}
+
+.board-list-grants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.grant-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+}
+
+.grant-badge-accepted {
+  border-color: #1a7f37;
+  color: #1a7f37;
+}
+
+.grant-badge-pending {
+  border-color: #b98900;
+  color: #b98900;
 }
 
 /* Browser bookmarks folder tree */
@@ -274,6 +353,30 @@ body {
   width: 320px;
 }
 
+.dialog-wide {
+  width: 480px;
+  max-width: 90vw;
+}
+
+.add-items-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.add-items-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
 .dialog form {
   display: flex;
   flex-direction: column;
@@ -319,12 +422,25 @@ body {
 
 .board-item-row {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
-  text-decoration: none;
-  color: inherit;
   border: 1px solid #ddd;
   border-radius: 6px;
   padding: 8px;
+}
+
+.board-item-link {
+  display: flex;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  flex: 1;
+}
+
+.board-item-remove {
+  flex-shrink: 0;
 }
 
 .board-item-media {

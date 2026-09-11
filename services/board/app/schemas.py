@@ -11,6 +11,7 @@ class CreateBoardRequest(BaseModel):
 class BoardResponse(BaseModel):
     id: uuid.UUID
     owner_user_id: uuid.UUID
+    owner_email: str | None
     name: str
     created_at: datetime
 
@@ -36,10 +37,39 @@ class BoardItemResponse(BaseModel):
 class BoardWithItemsResponse(BaseModel):
     id: uuid.UUID
     owner_user_id: uuid.UUID
+    owner_email: str | None
     name: str
     created_at: datetime
     role: str
     items: list[BoardItemResponse]
+
+
+class AccessGrantSummaryResponse(BaseModel):
+    invited_email: str
+    status: str
+    role: str
+    created_at: datetime  # invited_at
+    accepted_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class OwnedBoardResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    created_at: datetime
+    item_count: int
+    grants: list[AccessGrantSummaryResponse]
+
+
+class SharedBoardResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    owner_user_id: uuid.UUID
+    owner_email: str | None
+    role: str
+    accepted_at: datetime
+    item_count: int
 
 
 class InviteRequest(BaseModel):

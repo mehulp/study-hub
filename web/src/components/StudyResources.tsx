@@ -15,6 +15,21 @@ interface StudyResourcesProps {
 export function StudyResources({ items, onEdit, onDelete }: StudyResourcesProps) {
   const { isSelected, toggle } = useSelection();
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  // Collapsed by default -- only ids in this set are expanded. At real
+  // scale (70 items in the seeded demo account) showing every row's notes
+  // and Edit/Delete buttons at once turns the page into mostly scrolling,
+  // not reading. Tags stay visible either way so you can still scan/filter
+  // without expanding anything.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -53,34 +68,49 @@ export function StudyResources({ items, onEdit, onDelete }: StudyResourcesProps)
       )}
 
       <div className="resource-list">
-        {visibleItems.map((item) => (
-          <div key={item.id} className="resource-row">
-            <input
-              type="checkbox"
-              checked={isSelected(item.id)}
-              onChange={() => toggle(item.id)}
-            />
-            <div className="resource-body">
-              <a href={item.url} target="_blank" rel="noreferrer" className="resource-title">
-                {item.title}
-              </a>
-              {item.notes && <p className="resource-notes">{item.notes}</p>}
-              {item.tags.length > 0 && (
-                <div className="resource-tags">
-                  {item.tags.map((tag) => (
-                    <span key={tag} className="tag-chip tag-chip-small">
-                      {tag}
-                    </span>
-                  ))}
+        {visibleItems.map((item) => {
+          const expanded = expandedIds.has(item.id);
+          return (
+            <div key={item.id} className="resource-row">
+              <input
+                type="checkbox"
+                checked={isSelected(item.id)}
+                onChange={() => toggle(item.id)}
+              />
+              <div className="resource-body">
+                <div className="resource-header">
+                  <button
+                    className="resource-toggle"
+                    onClick={() => toggleExpanded(item.id)}
+                    aria-label={expanded ? "Collapse" : "Expand"}
+                    aria-expanded={expanded}
+                  >
+                    {expanded ? "▾" : "▸"}
+                  </button>
+                  <a href={item.url} target="_blank" rel="noreferrer" className="resource-title">
+                    {item.title}
+                  </a>
+                </div>
+                {item.tags.length > 0 && (
+                  <div className="resource-tags">
+                    {item.tags.map((tag) => (
+                      <span key={tag} className="tag-chip tag-chip-small">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {expanded && item.notes && <p className="resource-notes">{item.notes}</p>}
+              </div>
+              {expanded && (
+                <div className="resource-actions">
+                  <button onClick={() => onEdit(item)}>Edit</button>
+                  <button onClick={() => onDelete(item)}>Delete</button>
                 </div>
               )}
             </div>
-            <div className="resource-actions">
-              <button onClick={() => onEdit(item)}>Edit</button>
-              <button onClick={() => onDelete(item)}>Delete</button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
