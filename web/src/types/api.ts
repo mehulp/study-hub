@@ -15,7 +15,9 @@ export interface TokenResponse {
   expires_in: number;
 }
 
-export type Source = "twitter" | "chrome" | "firefox";
+// "twitter" retired (Decision #63) — manually-entered resources, including
+// pasted tweet/thread links, use "manual" instead.
+export type Source = "manual" | "chrome" | "firefox";
 
 export interface ItemResponse {
   id: string;
@@ -28,6 +30,8 @@ export interface ItemResponse {
   preview_text: string | null;
   preview_media_url: string | null;
   favicon_url: string | null;
+  notes: string | null;
+  tags: string[];
   saved_at: string;
   created_at: string;
 }

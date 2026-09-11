@@ -108,6 +108,79 @@ body {
   font-size: 14px;
 }
 
+/* Study resources (tag-filterable list) */
+.tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag-chip {
+  border: 1px solid #ccc;
+  background: none;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tag-chip-active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
+}
+
+.tag-chip-small {
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: default;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resource-row {
+  display: flex;
+  gap: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.resource-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-title {
+  font-weight: 600;
+  text-decoration: none;
+  color: inherit;
+}
+
+.resource-notes {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #555;
+}
+
+.resource-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.resource-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Browser bookmarks folder tree */
 .browser-source {
   margin-bottom: 16px;
@@ -214,8 +287,10 @@ body {
   font-size: 14px;
 }
 
-.dialog input {
+.dialog input,
+.dialog textarea {
   padding: 6px;
+  font-family: inherit;
 }
 
 .dialog-actions {

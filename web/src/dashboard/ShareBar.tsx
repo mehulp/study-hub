@@ -8,7 +8,7 @@ interface ShareBarProps {
 
 // Journey 3: "select all, then deselect unwanted ones, or pick individual
 // items one at a time" — selectAll seeds the full set for the first path,
-// individual checkboxes (in TwitterTiles/FolderTree) handle both.
+// individual checkboxes (in StudyResources/FolderTree) handle both.
 export function ShareBar({ allItemIds }: ShareBarProps) {
   const { selectedIds, selectAll, clear } = useSelection();
   const [dialogOpen, setDialogOpen] = useState(false);
