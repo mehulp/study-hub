@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { listItems, deleteItem } from "../api/items";
-import { listMyBoards } from "../api/board";
-import type { ItemResponse, OwnedBoardResponse } from "../types/api";
+import { listMyBoards, listSharedWithMe } from "../api/board";
+import type { ItemResponse, OwnedBoardResponse, SharedBoardResponse } from "../types/api";
 import { AppLayout } from "../layout/AppLayout";
 import { StudyResources } from "../components/StudyResources";
 import { ResourceFormDialog } from "../components/ResourceFormDialog";
@@ -22,6 +22,7 @@ export function LibraryPage() {
   const location = useLocation();
   const [items, setItems] = useState<ItemResponse[] | null>(null);
   const [myBoards, setMyBoards] = useState<OwnedBoardResponse[] | null>(null);
+  const [sharedBoards, setSharedBoards] = useState<SharedBoardResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formTarget, setFormTarget] = useState<FormTarget>(null);
   // Owned here (not inside StudyResources) so ShareBar's "Select all" can
@@ -40,6 +41,9 @@ export function LibraryPage() {
     listMyBoards()
       .then(setMyBoards)
       .catch(() => setError("We couldn't load your boards. Please try again."));
+    listSharedWithMe()
+      .then(setSharedBoards)
+      .catch(() => setError("We couldn't load boards shared with you. Please try again."));
   }, []);
 
   // Cross-page triggers, both using the same navigation-state mechanism
@@ -100,7 +104,7 @@ export function LibraryPage() {
     <AppLayout>
       <div className="page-heading">
         <h1>{currentUser?.first_name ? `Welcome back, ${currentUser.first_name}!` : "Welcome back"}</h1>
-        <p>Your learning library for system design and more.</p>
+        <p>Your learning library.</p>
       </div>
 
       <AffirmationWidget />
@@ -114,6 +118,7 @@ export function LibraryPage() {
             <StatCard value={manualItems.length} label="Study Resources" />
             <StatCard value={uniqueTopicCount} label="Unique Topics" />
             <StatCard value={myBoards?.length ?? 0} label="Your Boards" />
+            <StatCard value={sharedBoards?.length ?? 0} label="Shared With You" />
             <StatCard value={browserItems.length} label="Browser Bookmarks" />
           </div>
 

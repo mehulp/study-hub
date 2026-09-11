@@ -222,6 +222,13 @@ still accurate before relying on it for fast-changing facts (see below).
   excludes tags already added, picking one appends `", "` ready for the next tag. Free text
   is still always accepted; suggestions are a convenience, not validation. Verified live
   against the real 70-item/55-tag demo account.
+- **"Shared With You" stat card — ✅ Done (Decision #81).** User-found gap: a pure-receiver
+  account (owns zero boards, has boards shared with them) saw "0 Your Boards" on the
+  Library page with no signal anything was shared — only discoverable via the Boards page.
+  Added a 5th stat card, "Shared With You," using the already-existing
+  `GET /board/shared-with-me` (no new endpoint). Verified live against both real demo
+  accounts: receiver shows "0 Your Boards / 2 Shared With You," owner shows the reverse;
+  5-card row confirmed clean at desktop and ~400px mobile.
 - **Phase 5.** Deploy for real — verify current hosting options/pricing first, don't trust
   the architecture doc's old Render note.
 - **Phase 6 — deliberately last, even after deployment.** Push to GitHub, write a README
