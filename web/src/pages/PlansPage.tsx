@@ -3,7 +3,7 @@ import { AppLayout } from "../layout/AppLayout";
 import { listPlans } from "../api/plans";
 import type { PlanResponse } from "../types/api";
 import { PlanCards } from "../components/PlanCards";
-import { CreatePlanDialog } from "../components/CreatePlanDialog";
+import { PlanFormDialog } from "../components/PlanFormDialog";
 import { PlusIcon } from "../lib/icons";
 
 // Dedicated Plans destination (roadmap Phase 1, Decision #85) -- same
@@ -43,9 +43,9 @@ export function PlansPage() {
       )}
 
       {createOpen && (
-        <CreatePlanDialog
+        <PlanFormDialog
           onClose={() => setCreateOpen(false)}
-          onCreated={(plan) => setPlans((current) => [plan, ...(current ?? [])])}
+          onSaved={(plan) => setPlans((current) => [plan, ...(current ?? [])])}
         />
       )}
     </AppLayout>

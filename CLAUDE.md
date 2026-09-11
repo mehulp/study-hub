@@ -266,7 +266,12 @@ still accurate before relying on it for fast-changing facts (see below).
   pass: drag-to-reorder and an estimated-effort input (the columns exist and round-trip
   through the API already; the UI for them is real work saved for a later pass). 56 Items
   tests pass (22 new); `tsc -b`/lint clean; verified live through the real Gateway and a
-  full Playwright pass against the real owner account.
+  full Playwright pass against the real owner account. **Polish (Decision #86):**
+  `CreatePlanDialog` generalized into `PlanFormDialog` (create-or-edit, same pattern as
+  `ResourceFormDialog`) so a plan's name/description can actually be edited after
+  creation — the backend `PATCH /plans/{id}` already existed and was simply unreachable.
+  Checked `PlansPage`/`PlanDetailPage`/a real plan item row at 900px and 400px — all wrap
+  cleanly, no new CSS needed. Phase 1 is now fully done, not just shipped.
 - **X/Twitter source label + optional Image URL field — ✅ Done (Decision #84).** Prompted
   by a real workflow: saving X/Twitter threads that read like full articles, where the
   images can't be copied as text. `x.com`/`twitter.com`/`chatgpt.com`/`claude.ai` added to

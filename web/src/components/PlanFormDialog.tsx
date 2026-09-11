@@ -1,15 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { createPlan } from "../api/plans";
+import { createPlan, updatePlan } from "../api/plans";
 import type { PlanResponse } from "../types/api";
 
-interface CreatePlanDialogProps {
+interface PlanFormDialogProps {
+  plan?: PlanResponse; // present = edit mode, absent = create mode
   onClose: () => void;
-  onCreated: (plan: PlanResponse) => void;
+  onSaved: (plan: PlanResponse) => void;
 }
 
-export function CreatePlanDialog({ onClose, onCreated }: CreatePlanDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+// Same dialog for create and edit (Decision #64's precedent on
+// ResourceFormDialog) — `plan` being present is the only thing that
+// switches which API call submit makes.
+export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) {
+  const isEdit = plan !== undefined;
+  const [name, setName] = useState(plan?.name ?? "");
+  const [description, setDescription] = useState(plan?.description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,19 +23,21 @@ export function CreatePlanDialog({ onClose, onCreated }: CreatePlanDialogProps) 
     setError(null);
     setSaving(true);
     try {
-      const plan = await createPlan({ name, description: description || null });
-      onCreated(plan);
+      const saved = isEdit
+        ? await updatePlan(plan.id, { name, description: description || null })
+        : await createPlan({ name, description: description || null });
+      onSaved(saved);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't create that plan. Please try again.");
+      setError(err instanceof Error ? err.message : "We couldn't save that plan. Please try again.");
       setSaving(false);
     }
   }
 
   return (
     <div className="dialog-backdrop">
-      <div className="dialog" role="dialog" aria-labelledby="create-plan-title">
-        <h3 id="create-plan-title">New learning plan</h3>
+      <div className="dialog" role="dialog" aria-labelledby="plan-form-title">
+        <h3 id="plan-form-title">{isEdit ? "Edit plan" : "New learning plan"}</h3>
         <form onSubmit={handleSubmit}>
           <label className="field">
             Name
@@ -58,7 +65,7 @@ export function CreatePlanDialog({ onClose, onCreated }: CreatePlanDialogProps) 
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? "Creating..." : "Create plan"}
+              {saving ? "Saving..." : isEdit ? "Save changes" : "Create plan"}
             </button>
           </div>
         </form>

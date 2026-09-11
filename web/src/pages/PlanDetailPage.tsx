@@ -5,7 +5,8 @@ import type { PlanResponse, PlanItemStatus, Priority } from "../types/api";
 import { AppLayout } from "../layout/AppLayout";
 import { PlanItemsList } from "../components/PlanItemsList";
 import { AddItemsToPlanDialog } from "../components/AddItemsToPlanDialog";
-import { PlusIcon } from "../lib/icons";
+import { PlanFormDialog } from "../components/PlanFormDialog";
+import { PlusIcon, EditIcon } from "../lib/icons";
 
 export function PlanDetailPage() {
   const { planId } = useParams<{ planId: string }>();
@@ -13,6 +14,7 @@ export function PlanDetailPage() {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   function refetch() {
     if (!planId) return;
@@ -109,6 +111,10 @@ export function PlanDetailPage() {
           <div className="section-header">
             <span />
             <div className="board-page-actions">
+              <button className="btn btn-secondary" onClick={() => setEditDialogOpen(true)}>
+                <EditIcon size={16} />
+                Edit
+              </button>
               <button className="btn btn-secondary" onClick={() => setAddDialogOpen(true)}>
                 <PlusIcon size={16} />
                 Add Resources
@@ -137,6 +143,10 @@ export function PlanDetailPage() {
           onClose={() => setAddDialogOpen(false)}
           onAdded={refetch}
         />
+      )}
+
+      {editDialogOpen && plan && (
+        <PlanFormDialog plan={plan} onClose={() => setEditDialogOpen(false)} onSaved={setPlan} />
       )}
     </AppLayout>
   );
