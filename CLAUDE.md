@@ -74,8 +74,43 @@ still accurate before relying on it for fast-changing facts (see below).
   (`services/items/app/main.py`) — 32 passing tests in `services/items/tests/test_items.py`,
   plus a live smoke test through the real Docker stack. **Not yet built:** any of this
   surfaced in the web UI — that's Phase 2.
-- **Phase 2.** Web UI rework: rebrand to "Mehul's Study Hub," rework the dashboard to
-  browse by category instead of Twitter/Browser source.
+- **Phase 2 — ✅ Done (core flow verified live by the user).** Rebranded to "Mehul's Study
+  Hub" (header, page title). Twitter's UI removed entirely — `TwitterTiles.tsx` and
+  `api/twitter.ts` deleted as genuinely dead code now that `source="twitter"` can never
+  exist (Decision #63); the backend OAuth code stays, per Decision #61. `BrowserBookmarks`/
+  `FolderTree` left untouched — still dormant, not dropped (Decision #60). New
+  `StudyResources.tsx`: flat resource list with tag-chip filtering (not fixed sections —
+  tags are multi-valued, Decision #62) plus `ResourceFormDialog.tsx`, one dialog for both
+  create and edit (mirrors Decision #64's PATCH). Wired into `DashboardPage.tsx` with
+  local-state updates on save/delete (no full re-fetch). Verified: TypeScript compiles
+  clean, `oxlint` clean, full create/list/PATCH/DELETE contract confirmed live through
+  Gateway, and the user confirmed the actual rendered UI (empty states, create flow, tag
+  chip, notes, Edit/Delete buttons) in their own browser — this session's sandbox had no
+  usable headless-browser environment (no system Chromium libs, no passwordless sudo), so
+  that real-browser check came from the user, not from an automated screenshot here.
+  Follow-up naming-consistency pass (user-requested, after seeing it work): renamed
+  "Bookmarks Hub" branding and the `bookmarks_hub` identifier everywhere it meant *this*
+  project — `web/package.json`'s `name` (now `study-hub-web`), the browser extension's
+  manifest/HTML titles, `web/src/api/client.ts`'s localStorage keys and the
+  `study_hub:logged_out` event (was `bookmarks_hub:...`), `check-dev-env.sh`,
+  `sailpoint-prep-coverage-map.md`'s title, and — the bigger one — the Postgres
+  user/database itself (`bookmarks_hub` → `study_hub` in `docker-compose.yml`, every
+  service's test `conftest.py`, `run-tests.sh`, and `.env`/`.env.example` files), which
+  required recreating the Postgres container + volume (old dev data wiped, by the user's
+  own choice — see the Decision Log entry logged for this). Also fixed a real pre-existing
+  bug found along the way: `daily-startup.md` still pointed at
+  `/home/mehul/projects/bookmarks-hub` and `bookmarks-hub-postgres-1` — wrong for this
+  repo's own copy of the doc, now corrected. Left alone, deliberately: every mention of
+  `bookmarks-hub` that actually refers to the real sibling project (in `CLAUDE.md`,
+  `start-dev.sh`, the fork note, Decision #59) — those are correct as-is. Decisions #1–58
+  stayed untouched (historical, never edited). The `## Problem Scope` section's original
+  "personal bookmarks hub" framing (browser-first, Twitter-second, organized by source) was
+  a separate, genuine content rewrite — not just a naming fix — done as a follow-up once
+  asked: it now describes the actual current product (manual entry + tag-based curation as
+  primary, browser bookmarks dormant/deferred, Twitter fetching retired in favor of
+  link-paste) instead of the pre-fork one.
+  **Still open, low-stakes:** the favicon is unbranded (default Vite icon, never said
+  "Bookmarks Hub" to begin with, so not actually part of this cleanup).
 - **Phase 3.** Secrets hygiene: `OAUTH_CLIENT_SECRET` and `POSTGRES_PASSWORD` are currently
   hardcoded in `docker-compose.yml` — move to `.env`, rotate the OAuth secret value.
   (`TWITTER_CLIENT_SECRET` is no longer in scope here per Decision #61.)
