@@ -1,6 +1,10 @@
 import type { TokenResponse } from "../types/api";
 
-const GATEWAY_URL = "http://localhost:8000";
+// Vite bakes import.meta.env.* into the build at build time (Decision
+// #87) -- set locally, it's undefined, so this falls back to exactly
+// today's value; set at Railway's build step, it points at the real
+// deployed Gateway. Local dev is unaffected either way.
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL ?? "http://localhost:8000";
 
 // Tokens live in localStorage, not memory-only state or httpOnly cookies.
 // The only real alternative — httpOnly cookies set directly by Auth —

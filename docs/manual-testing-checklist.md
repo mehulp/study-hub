@@ -20,8 +20,8 @@ scratch:
 
 | Account | Email | Password |
 |---|---|---|
-| Owner | `mehulpatankar_owner@gmail.com` | `wXOglOGoZuyuL0l9saQVyw` |
-| Receiver | `mehulpatankar_receiver@gmail.com` | `jKoSJUoKtbMq2oZaXVGnHw` |
+| Owner | `mehulpatankar_owner@gmail.com` | *(kept locally, not in this repo)* |
+| Receiver | `mehulpatankar_receiver@gmail.com` | *(kept locally, not in this repo)* |
 
 Both real demo accounts have `first_name` set (Decision #73: owner is "Mehul", receiver is
 "Study Partner") — this predates the redesign, don't reset it while testing.
