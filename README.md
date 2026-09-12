@@ -6,6 +6,15 @@ curated board with a study partner under real role-based access control.
 
 **Live**: [study-hub.mehul-patankar.workers.dev](https://study-hub.mehul-patankar.workers.dev)
 
+## Demo
+
+The full loop, recorded end to end against fresh accounts, nothing staged: adding
+resources, organizing them into a Learning Plan, sharing a board — then, as the invited
+recipient, opening the link, signing up, landing directly on the shared board, and saving
+an item into their own library.
+
+https://github.com/user-attachments/assets/5edb956a-f407-4b00-b817-120ab2fcdffd
+
 Built as a personal project to rebuild hands-on system-design fluency — real service
 boundaries, authentication/authorization, RBAC, and a real production deployment — ahead of
 Senior EM/Director interviews. It's a fork of an earlier personal bookmark-manager project,
