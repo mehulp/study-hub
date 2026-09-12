@@ -55,6 +55,7 @@ export interface BoardItemResponse {
   favicon_url: string | null;
   preview_text: string | null;
   preview_media_url: string | null;
+  tags: string[];
   added_at: string;
 }
 

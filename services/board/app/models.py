@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -47,6 +47,9 @@ class BoardItem(Base):
     favicon_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     preview_media_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Same snapshot pattern as the fields above (Decision #37), added later
+    # once tags existed (Decision #62) — see migration 0004.
+    tags: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

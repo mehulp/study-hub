@@ -230,6 +230,7 @@ async def add_item(
         favicon_url=item.get("favicon_url"),
         preview_text=item.get("preview_text"),
         preview_media_url=item.get("preview_media_url"),
+        tags=item.get("tags") or [],
     )
     db.add(board_item)
 

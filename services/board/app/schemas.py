@@ -30,6 +30,7 @@ class BoardItemResponse(BaseModel):
     favicon_url: str | None
     preview_text: str | None
     preview_media_url: str | None
+    tags: list[str]
     added_at: datetime
 
     model_config = {"from_attributes": True}

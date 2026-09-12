@@ -129,6 +129,19 @@ def test_add_item_denormalizes_display_fields(client, owner_headers, ingested_it
     assert view["items"][0]["favicon_url"] == ingested_item["favicon_url"]
 
 
+def test_add_item_snapshots_tags(client, owner_headers, ingested_item_with_tags):
+    board = create_board(client, owner_headers).json()
+    response = client.post(
+        f"/{board['id']}/items",
+        json={"item_id": ingested_item_with_tags["id"]},
+        headers=owner_headers,
+    )
+    assert sorted(response.json()["tags"]) == ["databases", "system-design"]
+
+    view = client.get(f"/{board['id']}", headers=owner_headers).json()
+    assert sorted(view["items"][0]["tags"]) == ["databases", "system-design"]
+
+
 def test_add_nonexistent_item_returns_404(client, owner_headers):
     board = create_board(client, owner_headers).json()
 

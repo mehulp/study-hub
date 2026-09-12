@@ -49,7 +49,12 @@ export function BoardPage() {
       // A duplicate URL isn't rejected — Items treats re-ingesting a known
       // (owner, source, external_id) as idempotent success (Decision #33),
       // so this never needs special-case duplicate handling here.
-      await createItem({ title: item.title, url: item.url, imageUrl: item.preview_media_url });
+      await createItem({
+        title: item.title,
+        url: item.url,
+        imageUrl: item.preview_media_url,
+        tags: item.tags,
+      });
       setSavedUrls((prev) => new Set(prev).add(item.url));
     } catch {
       setError("We couldn't save that resource. Please try again.");

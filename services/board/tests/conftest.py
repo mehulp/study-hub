@@ -176,6 +176,25 @@ def ingested_item(owner_identity):
 
 
 @pytest.fixture()
+def ingested_item_with_tags(owner_identity):
+    """Same as ingested_item, but carries real tags — for verifying the
+    tags snapshot Board copies at add-time (migration 0004)."""
+    response = httpx.post(
+        f"{ITEMS_TEST_URL}/",
+        json={
+            "source": "chrome",
+            "external_id": str(uuid.uuid4()),
+            "title": "Tagged Test Item",
+            "url": "https://example.com/tagged",
+            "tags": ["system-design", "databases"],
+            "saved_at": "2026-01-01T00:00:00Z",
+        },
+        headers={"Authorization": f"Bearer {owner_identity['access_token']}"},
+    )
+    return response.json()
+
+
+@pytest.fixture()
 def db_session():
     from app.db import engine
 
