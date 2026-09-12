@@ -2,12 +2,20 @@ import type { BoardItemResponse } from "../types/api";
 import { resolveFaviconUrl } from "../lib/favicon";
 import { resolveSourceInfo } from "../lib/sourceLabel";
 import { EmptyState } from "./EmptyState";
+import { PlusIcon, CheckIcon } from "../lib/icons";
 
 interface BoardItemsListProps {
   items: BoardItemResponse[];
   // Present only for the owner — a viewer gets the same list with no way
   // to change it (Decision #10).
   onRemove?: (itemId: string) => void;
+  // Present only for a non-owner viewer (Decision #89) — the owner already
+  // owns every item on their own board, so there's nothing to save.
+  onSaveToLibrary?: (item: BoardItemResponse) => void;
+  // URLs already in the viewer's own Library, checked eagerly (same
+  // pre-filter pattern as AddItemsToBoardDialog, Decision #70) so "already
+  // saved" shows as a disabled checkmark rather than failing after a click.
+  savedUrls?: Set<string>;
 }
 
 // Board never stores an item's source or folder (Decision #37's
@@ -16,7 +24,7 @@ interface BoardItemsListProps {
 // just one flat list, honest to what's actually stored. Source labels
 // (section 18) are still derived client-side from the URL, same as
 // Study Resources.
-export function BoardItemsList({ items, onRemove }: BoardItemsListProps) {
+export function BoardItemsList({ items, onRemove, onSaveToLibrary, savedUrls }: BoardItemsListProps) {
   if (items.length === 0) {
     return <EmptyState title="This board has no items yet." />;
   }
@@ -44,6 +52,21 @@ export function BoardItemsList({ items, onRemove }: BoardItemsListProps) {
                 Remove
               </button>
             )}
+            {onSaveToLibrary &&
+              (savedUrls?.has(item.url) ? (
+                <button className="btn btn-secondary btn-sm" disabled>
+                  <CheckIcon size={14} />
+                  Saved
+                </button>
+              ) : (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => onSaveToLibrary(item)}
+                >
+                  <PlusIcon size={14} />
+                  Save to My Resources
+                </button>
+              ))}
           </div>
         );
       })}

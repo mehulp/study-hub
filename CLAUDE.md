@@ -272,25 +272,49 @@ still accurate before relying on it for fast-changing facts (see below).
   creation — the backend `PATCH /plans/{id}` already existed and was simply unreachable.
   Checked `PlansPage`/`PlanDetailPage`/a real plan item row at 900px and 400px — all wrap
   cleanly, no new CSS needed. Phase 1 is now fully done, not just shipped.
-- **Phase 2 (deployment) — hosting research done, code prep done, actual deploy not yet
-  started.** Researched current (Sept 2026) hosting options rather than trusting the
-  architecture doc's stale Render note: ruled out AWS App Runner (no longer accepting new
-  customers as of April 30, 2026), Fly.io (no free tier for new accounts), Render (free
-  tier's 750 hrs/month is a shared pool across all services, can't cover 5 always-on
-  services; free Postgres auto-deletes after 30-44 days), and DigitalOcean App Platform
-  (~$25/mo minimum for 5 basic containers before a database). Landed on **Railway** as the
-  first deploy target — usage-based (~$5-15/mo realistic), reads a `docker-compose.yml`
-  directly, least setup friction; **Google Cloud Run + Neon** noted as a genuinely-$0/month
-  alternative with more setup work, worth revisiting later. **Code prep — Decision #87:**
-  the two real changes a git-clone host needs (frontend `GATEWAY_URL` → a Vite build-time
-  env var; Auth's gitignored JWT key files → written from env vars via a new
-  `entrypoint.sh`, only if not already present), both designed and verified to leave local
-  `docker compose up` byte-for-byte unchanged. Real Railway account/project setup — service
-  creation, env vars, Postgres provisioning — not yet done; that's the next concrete step.
+- **Phase 2 (deployment) — ✅ Done, live and verified (Decisions #87–#91).** Researched
+  current (Sept 2026) hosting options rather than trusting the architecture doc's stale
+  Render note: ruled out AWS App Runner (no longer accepting new customers as of April 30,
+  2026), Fly.io (no free tier for new accounts), Render (free tier's 750 hrs/month is a
+  shared pool across all services, can't cover 5 always-on services; free Postgres
+  auto-deletes after 30-44 days), and DigitalOcean App Platform (~$25/mo minimum for 5 basic
+  containers before a database). Landed on **Railway** for the backend — usage-based
+  (~$5-15/mo realistic) — and **Cloudflare Workers** for the frontend (free at this scale);
+  **Google Cloud Run + Neon** noted as a genuinely-$0/month alternative, worth revisiting
+  later if cost ever matters. Real, live infrastructure now: all 5 services + Postgres
+  running on Railway (private networking via `${{service.RAILWAY_PRIVATE_DOMAIN}}`
+  reference variables, not the bare Compose hostnames — Decision #89), the web UI on
+  Cloudflare Workers via a committed `web/wrangler.jsonc` (Cloudflare moved static-asset
+  deploys from classic Pages to Workers platform-wide — Decision #90) at
+  `https://study-hub.mehul-patankar.workers.dev`, CORS closing the loop back to `gateway`.
+  JWT keys cross into Railway via base64'd env vars decoded by a new
+  `services/auth/entrypoint.sh` (raw PEM text loses newlines in Railway's single-line
+  variable inputs — Decisions #87/#88). The real 70-resource/shared-board demo data (Decision
+  #67) is seeded onto Railway too, via `scripts/seed_demo_data.py` made deploy-target-
+  configurable (Decision #91) — it already talks to Items/Board/Auth purely through the real
+  Gateway API, never the database directly, so it needed no new logic, just three env-var
+  overrides. Verified live end to end: real signup/login, all 70 resources visible, the
+  shared board and its receiver-side accept both confirmed in the browser by the user.
   Considered and explicitly deferred (real email invitations via Resend, and revisiting
   Decision #39's no-email-match rule to go with it) — user chose to keep sending invite
   links manually for now; the existing signup-from-invite return-path flow already supports
   this with zero new code (verified by re-reading `ProtectedRoute`/`LoginPage`/`SignupPage`).
+  **Not yet written:** a dedicated deployment runbook doc (how Railway and Cloudflare are
+  actually wired together) — requested, still pending.
+- **"Save to My Resources" for shared-board viewers — ✅ Done (Decision #92).** A non-owner
+  viewer of a shared board can copy any item into their own Library with one click —
+  `BoardItemsList.tsx` gained an `onSaveToLibrary`/`savedUrls` prop pair, `BoardPage.tsx`
+  wires it to the existing `POST /items` endpoint (no backend change) and pre-checks the
+  viewer's own Library once per board view so an already-saved item shows a disabled
+  "Saved" state rather than failing after a click. The copy is a snapshot, not a live
+  link, and starts with empty tags/notes — `board_items` never stored those fields to begin
+  with. A related, bigger idea (making the board itself show live, non-stale item data,
+  closing the gap Decision #64 flagged) was explicitly designed and then declined — see
+  Decision #93 — once the user pointed out it wouldn't actually solve the real problem
+  (knowing a board changed at all), and would need real new cross-service auth
+  infrastructure to do properly. Verified live via a fresh owner/receiver pair created
+  through the real API and a real Playwright click-through, plus a direct API check
+  confirming the copy landed correctly in the receiver's own Library.
 - **X/Twitter source label + optional Image URL field — ✅ Done (Decision #84).** Prompted
   by a real workflow: saving X/Twitter threads that read like full articles, where the
   images can't be copied as text. `x.com`/`twitter.com`/`chatgpt.com`/`claude.ai` added to

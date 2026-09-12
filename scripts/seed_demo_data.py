@@ -14,6 +14,7 @@ library (pip install requests — not in any service's requirements.txt,
 since only this one-off script needs it).
 """
 import csv
+import os
 import re
 import secrets
 from collections import defaultdict
@@ -22,7 +23,7 @@ from pathlib import Path
 
 import requests
 
-GATEWAY = "http://localhost:8000"
+GATEWAY = os.environ.get("GATEWAY_URL", "http://localhost:8000")
 CSV_PATH = Path(__file__).parent / "system_design_resources.csv"
 
 OWNER_EMAIL = "mehulpatankar_owner@gmail.com"
@@ -169,8 +170,12 @@ def signup_and_login(email: str, password: str, first_name: str | None = None) -
 
 
 def main() -> None:
-    owner_password = secrets.token_urlsafe(16)
-    receiver_password = secrets.token_urlsafe(16)
+    # Overridable so this can be re-run against a target where the owner
+    # account already exists (e.g. deployed, signed up through the UI
+    # first) -- signup_and_login already tolerates a 409, it just needs
+    # the real password to log in with instead of a fresh random one.
+    owner_password = os.environ.get("OWNER_PASSWORD") or secrets.token_urlsafe(16)
+    receiver_password = os.environ.get("RECEIVER_PASSWORD") or secrets.token_urlsafe(16)
 
     resources = load_resources()
     print(f"Loaded {len(resources)} distinct resources from {CSV_PATH.name}")

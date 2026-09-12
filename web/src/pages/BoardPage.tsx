@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getBoard, removeItemFromBoard } from "../api/board";
-import type { BoardWithItemsResponse } from "../types/api";
+import { listItems, createItem } from "../api/items";
+import type { BoardWithItemsResponse, BoardItemResponse } from "../types/api";
 import { AppLayout } from "../layout/AppLayout";
 import { BoardItemsList } from "../components/BoardItemsList";
 import { AddItemsToBoardDialog } from "../components/AddItemsToBoardDialog";
@@ -14,6 +15,10 @@ export function BoardPage() {
   const [error, setError] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  // Which of the viewer's own Library URLs already exist — checked once so
+  // "Save to My Resources" can show an already-saved state instead of
+  // failing after a click (Decision #89).
+  const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
 
   function refetch() {
     if (!boardId) return;
@@ -23,6 +28,33 @@ export function BoardPage() {
   }
 
   useEffect(refetch, [boardId]);
+
+  // Only a non-owner viewer can save a copy (the owner already owns every
+  // item on their own board) — skip the extra fetch entirely for owners.
+  // Depends on just the role, not the whole `board` object, so this doesn't
+  // re-fetch every time refetch() runs a new board object through state.
+  const role = board?.role;
+  useEffect(() => {
+    if (!role || role === "owner") return;
+    listItems()
+      .then((items) => setSavedUrls(new Set(items.map((item) => item.url))))
+      .catch(() => {
+        // Non-fatal: the button just won't show an "already saved" state
+        // up front, and a genuine idempotent re-save still no-ops safely.
+      });
+  }, [role]);
+
+  async function handleSaveToLibrary(item: BoardItemResponse) {
+    try {
+      // A duplicate URL isn't rejected — Items treats re-ingesting a known
+      // (owner, source, external_id) as idempotent success (Decision #33),
+      // so this never needs special-case duplicate handling here.
+      await createItem({ title: item.title, url: item.url, imageUrl: item.preview_media_url });
+      setSavedUrls((prev) => new Set(prev).add(item.url));
+    } catch {
+      setError("We couldn't save that resource. Please try again.");
+    }
+  }
 
   async function handleRemove(itemId: string) {
     if (!board || !boardId) return;
@@ -85,7 +117,12 @@ export function BoardPage() {
             </div>
           )}
 
-          <BoardItemsList items={board.items} onRemove={isOwner ? handleRemove : undefined} />
+          <BoardItemsList
+            items={board.items}
+            onRemove={isOwner ? handleRemove : undefined}
+            onSaveToLibrary={isOwner ? undefined : handleSaveToLibrary}
+            savedUrls={savedUrls}
+          />
         </>
       )}
 
