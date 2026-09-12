@@ -1,26 +1,47 @@
 
 # Study Hub — Architecture & Decision Log
 
-**Purpose of this doc:** A living record of every design decision made while building this project, and why. This is the primary artifact — the goal is to be able to defend each decision in an interview, not just to have working code. Update this doc every time a real decision is made, in Claude chat or in Claude Code.
+**Purpose of this doc:** A living record of every design decision made while building this project, and why. This is the detailed source of truth — the goal is to be able to defend each decision in an interview, not just to have working code. For a compact, interview-ready version of the same system, see **`docs/learning-pack/`** — that's the 30-45-minute-before-an-interview version; this file is the full history behind it.
+
+**Status: feature-complete, scope frozen (2026-09-12).** Study Hub is done from a product-feature perspective. Work from here on is documentation, verification, and learning consolidation — see the **Near-Term Direction** section for what that superseded and why.
 
 **Note on this document's history:** this project (now "Mehul's Study Hub") began life as `bookmarks-hub`, a personal bookmark manager, and was forked (full git history preserved, no remote link back) once real hands-on experience with the architecture made clear that a study-resource curation/sharing tool was a more compelling, honest product story for the same underlying engineering — Items and Board were already generic, not actually bookmark-specific. `bookmarks-hub` itself is untouched and continues on its own as a separate personal project. Decisions #1–58 below predate the fork and are kept as-is, unedited; the fork itself is logged as Decision #59.
 
 **Project goal:** A personal, learning-focused project to rebuild hands-on system design fluency (architecture, microservices, auth/authz, RBAC, basic UI) ahead of Senior EM / Director interviews. Not a coding-skill exercise — the point is being able to explain and defend every architectural choice.
 
+## Contents
+
+- [Problem Scope](#problem-scope)
+- [How We're Building This (Process)](#how-were-building-this-process)
+- [Hosting / Deployment](#hosting--deployment)
+- [Open Design Questions](#open-design-questions)
+- [User Journeys (current)](#step-1-user-journeys-current)
+- [Domain Model (current)](#step-2-domain-model-current)
+- [API & Service Boundaries (current)](#step-3-api--service-boundaries-current)
+- [Data Schema (current)](#step-4-data-schema-current)
+- [Web UI — Structure & Layers (current)](#web-ui--structure--layers-current)
+- [Architectural Learnings](#architectural-learnings)
+- [Near-Term Direction — superseded, scope frozen](#near-term-direction--superseded-scope-frozen)
+- [Future Extensions / Backlog — historical](#future-extensions--backlog--historical-several-items-since-built)
+- [Decision Log](#decision-log) (#1–94)
+
 ---
 
 ## Problem Scope
 
-A tool to curate and share system-design/interview-prep learning resources with study partners — save a resource (title, URL, personal notes, tags) via manual entry, browse your own library by tag rather than by where it came from, and share a curated board with someone else under real RBAC. This project's earlier life as a browser/Twitter bookmark manager (`bookmarks-hub`, see the document-history note above) is still visible in the architecture — the browser extension and the Twitter OAuth handshake are both real, working code — even though the active product path today is manual entry and tag-based curation, not source-based capture. The longer-term goal remains growing this into a broader personal toolset once this module is stable (see **Near-Term Direction** below).
+A tool to curate and share system-design/interview-prep learning resources with study partners: save a resource (title, URL, personal notes, free-text tags) via manual entry, browse and filter your own library by tag, group resources into named Learning Plans with per-item progress, and share a curated board with someone else under real RBAC. Every resource enters manually today — there is no live scraping/fetching from any external source in the running product.
 
-**In scope (in build order):**
-1. ✅ **Built** — Browser bookmarks (Chrome + Firefox, via a shared WebExtensions-based browser extension) — built first, free, no third-party API cost; now a dormant, secondary capture path, deferred rather than dropped (Decision #60), not the primary way resources get in
-2. ✅ **Built** — Tile/list dashboard plus a React web UI (auth, browsing, sharing, receiving)
-3. 🟡 **Partially built** — Sharing with real RBAC: **Owner and Viewer are implemented and enforced**; **Editor is a reserved role, not yet assignable** (no role picker exists — see Decision #10)
-4. **Retired** — Twitter/X bookmark fetching (OAuth2 + PKCE): the authorization handshake is built and verified (Decision #56) and kept in the codebase as real, demonstrated engineering, but actually fetching tweets was never built and won't be — a pasted tweet/thread URL is now just handled as a normal manually-entered resource instead (Decision #61)
-5. ✅ **Built** — Manually-entered study resources: title, URL, personal notes, free-text multi-valued tags, and full create/edit/delete — the primary way resources get into Study Hub today (Decisions #60, #62, #64); the dashboard organizes and filters by tag as a direct result
+**What's actually live, as of the scope freeze:**
+- Manual resource entry — title, URL, personal notes, free-text multi-valued tags, an optional image URL (Decisions #60, #62, #64, #84)
+- Learning Plans — named plans grouping existing resources with per-item status/priority/target date, plus a "Continue Learning" view (Decision #85)
+- Sharing — create/invite to a board under real RBAC (**Owner and Viewer are implemented and enforced; Editor is a reserved role, never assignable** — no role picker exists, Decision #10), a receiver can also copy any shared item straight into their own Library (Decision #92)
+- Full deployment — Railway (backend) + Cloudflare Workers (frontend), see `docs/deployment.md`
 
-**Explicitly out of scope:** CVE/vulnerability tracking (dropped in the original `bookmarks-hub` project — kept the personal project personal, separate from work-adjacent content).
+**Real code that exists but is intentionally dormant, not deleted** (both are genuine, demonstrated engineering kept as part of the story, not currently exercised by the live product):
+- The browser extension (Chrome + Firefox) — a secondary capture path, deferred not dropped (Decision #60)
+- Twitter/X OAuth2+PKCE authorization (Decision #56) — the handshake works end to end against X's real servers; actually fetching tweets was never built and won't be (Decision #61). A pasted tweet/thread URL is just handled as a normal manually-entered resource instead.
+
+**Explicitly out of scope:** CVE/vulnerability tracking (dropped in the original `bookmarks-hub` project — kept the personal project personal, separate from work-adjacent content). Real transactional email delivery — invite links are still shown in the UI for manual copy/paste (Decision #38), a Resend-based email flow was designed in detail and explicitly declined.
 
 ## How We're Building This (Process)
 
@@ -43,249 +64,192 @@ flowchart TD
     F -.->|findings loop back| A
 ```
 
-## Hosting / Environment Decisions
+## Hosting / Deployment
 
-- **Current development:** local via Docker Compose. This keeps the learning loop fast and avoids mixing application design with deployment concerns too early.
-- **Twitter OAuth testing:** the OAuth callback will need a public HTTPS URL; use a temporary tunnel during local development if needed.
-- **Public deployment:** planned as a real learning milestone once the Bookmarks module is stable. The hosting provider is intentionally **TBD** until that phase; the goal is to learn the path from local code → Git/GitHub → deployment → domain/HTTPS rather than optimize prematurely for a specific platform.
-- **Tooling:** implementation is currently done in VS Code with Claude Code. Architecture/learning review is documented here and can be reviewed independently of the coding tool.
+**Local development:** Docker Compose, one command (`bash start-dev.sh`) — see `docs/daily-startup.md`.
+
+**Production:** deployed for real — Railway (5 backend services + Postgres) and Cloudflare Workers (frontend). Full setup, every environment variable, and every platform-specific gotcha hit along the way (private networking, JWT key encoding, the Cloudflare Pages→Workers migration) are documented in **`docs/deployment.md`**, verified against the actual live deployment, not written speculatively. Hosting research and the decision to land on Railway/Cloudflare is Decisions #87–#91 below.
+
+**Twitter OAuth testing** (dormant feature, Decision #61): the OAuth callback needs a public HTTPS URL; a temporary tunnel (e.g. `ngrok http 8000`) is only needed if actually testing that flow — not part of normal deployment.
+
+**Tooling:** implementation is done in VS Code with Claude Code. This document and the Decision Log can be reviewed independently of the coding tool.
 
 ## Open Design Questions
 
-**Open: a browser profile, not a re-authenticated person, is what's actually trusted by both the extension and the web UI.** The extension's push token (Decision #42) and the web UI's session tokens (Decision #51) both live in that browser profile's local storage, tied to whoever set that connection up or logged in there once — not re-checked per use. Concretely: anyone who can open that same browser profile (any tab, no separate login) can click "Sync Now" and push bookmarks into whichever Study Hub account that profile's push token belongs to, or view an already-logged-in web session's dashboard directly, with no additional authentication either way. Surfaced from a real question about identity: it's easy to assume a browser's own Google/Gmail sign-in is what ties bookmarks to a Study Hub account, but the two are entirely unrelated — the extension reads whatever bookmarks locally exist in that profile regardless of Google sign-in state, and the only thing that actually ties a sync to *your* Study Hub account is the one-time login you did on the extension's options page. Currently an accepted trade-off for a single-user personal project (the same "no real other audience" reasoning behind Decision #8's one-time source setup) — worth revisiting with a device/session list plus revocation (partially already possible via refresh-token revocation, Decision #26), shorter-lived push tokens, or step-up re-authentication, if this project ever moves beyond one person on their own machine.
+**Open, but scoped to the dormant browser extension only (not the live web product):** a browser profile, not a re-authenticated person, is what's actually trusted by the extension's push-token flow. The extension's push token (Decision #42) lives in that browser profile's local storage, tied to whoever set that connection up — not re-checked per use. Anyone who can open that same browser profile could push bookmarks into whichever account that profile's push token belongs to, with no additional authentication. Currently an accepted trade-off for a single-user personal project (the same "no real other audience" reasoning behind Decision #8's one-time source setup) — moot while the extension stays dormant (Decision #60); would need revisiting (a device/session list plus revocation, shorter-lived push tokens, or step-up re-auth) only if this capture path is ever reactivated for more than one person.
 
-*(Previously open: "Where should RBAC be enforced — gateway-level only, or also independently per service?" — resolved by Decision #30: both. Gateway does coarse validation, backend services independently re-verify the JWT for fine-grained checks.)*
+*(Resolved: "Where should RBAC be enforced — gateway-level only, or also independently per service?" — Decision #30: both. Gateway does coarse validation, backend services independently re-verify the JWT for fine-grained checks.)*
 
-## Step 1: User Journeys
+## Step 1: User Journeys (current)
 
-These were the original design-time journeys; most are now built. Status is marked per journey below — where a journey mixes built and pending pieces (1a, 2), that's called out per step.
+### Journey 1: Sign up / log in — ✅ Built
+1. Navigate to the app (Cloudflare-hosted URL in production, `localhost:5173` locally)
+2. Sign up with email, password, and first name — or log in if you already have an account
+3. Land on the Library page
 
-### Journey 1a: One-time source setup (done once, by you, as owner — not a polished user-facing flow)
-1. ✅ Built — Install and authorize the browser extension locally, pointed at the app
-2. 🟡 Partially built — Authorize Twitter via OAuth2 + PKCE, via a real "Connect Twitter" button on the web UI dashboard (not the vaguer "simple internal route" this journey originally sketched — the dashboard didn't exist yet when this was first written). The authorization handshake itself (Decision #56) is built and verified end to end against X's real token endpoint. **Still pending:** actually fetching bookmarks with the resulting token — deferred until X API credits are purchased, since that step (unlike authorization) has a real per-item cost.
-3. From this point on, connected sources sync server-side — no "Connect" button, empty state, or retry UX needed, since there's no other audience going through this
+### Journey 2: Adding and organizing resources — ✅ Built
+1. "+ Add Resource," reachable from anywhere in the app — title, URL, personal notes, comma-separated tags, optional image URL
+2. Library page: every resource, tag-chip filtering (a curated popular set plus a full searchable list), search box, sort, list/grid toggle
+3. Edit or delete any resource inline, no page navigation required
 
-### Journey 1b: Everyday login (what happens every time) — ✅ Built
-1. Open browser, navigate to the app URL (`localhost:5173` today; a real domain once deployed — see Near-Term Direction)
-2. Presented with login — own email/password auth (Google Sign-In deferred to later as an optional method, see Decision #6)
-3. After login, dashboard shows two top-level blocks: **Twitter** (empty until the pending connector is built) and **Browser Bookmarks** (populated)
-4. Browser Bookmarks expands into **Chrome** / **Firefox** sub-folders, each preserving that browser's native folder structure (Bookmarks Bar, Other, custom folders) — see Decision #7
-5. Twitter is a flat list/tile view (no folder concept)
+### Journey 3: Learning Plans — ✅ Built
+1. Create a named plan (e.g. "System Design — 4 Weeks")
+2. Add existing resources to it; each gets its own status (not started/in progress/completed/skipped), optional priority and target date
+3. Library page's "Continue Learning" section surfaces in-progress and due-this-week items across all plans, derived entirely client-side from data already fetched
+4. Removing an item from a plan never deletes the underlying resource; deleting a plan never deletes its resources
 
-**Note:** users you later share a board with (see Journey 3/4) never go through Journey 1a — they only ever see boards you've already populated, via Viewer access (Editor is reserved but not assignable — see Decision #10).
+### Journey 4: Sharing a board — ✅ Built
+1. Select resources (checkboxes work even with rows collapsed) → "Share selected," or "Invite" to add another person to a board that already exists
+2. Name a new board, or pick an existing one; enter the recipient's email
+3. An expiring invite link is generated — opaque, high-entropy, **not signed, not a JWT** (Decision #36). **No real email is sent** (Decision #38) — the link is shown in the UI for manual copy/paste
+4. Role is hardcoded to Viewer — no picker exists (Decision #10)
 
-### Journey 2: Everyday use — browsing
-1. 🔲 Pending — **Twitter tab:** default view is tiles, each showing a lightweight preview (tweet text/media — comes free from the API response, no extra fetching)
-2. 🔲 Pending — Clicking a Twitter tile opens the original tweet on X in a new tab
-3. ✅ Built — **Browser tab:** default view is a collapsible folder tree (not tiles) — bookmark volume makes tiles impractical; each row shows title + URL + favicon only (no full-page preview thumbnails — not worth the extra fetch/caching complexity for a secondary view)
-4. ✅ Built — Clicking a browser bookmark opens the original URL in a new tab
+### Journey 5: Receiving and using a shared board — ✅ Built
+1. Recipient opens the invite link — signs up or logs in if needed (return path preserved either way), lands directly on the board, no separate "accept" step
+2. As Viewer: sees every item, opens underlying links in a new tab, cannot add/remove/edit/re-share — those controls don't render at all, not just disabled
+3. Can copy any item straight into their own Library with one click, "Save to My Resources" (Decision #92) — a one-time copy, not a live link, tags included (Decision #94 closed a real gap where the first version shipped tag-less)
+4. A dedicated Boards page lists every board owned and every board shared with you — no need to keep the original invite link around afterward
 
-### Journey 3: Sharing a board — ✅ Built
-1. Select tiles — either "select all" then deselect unwanted ones, or pick individual tiles one at a time
-2. Selection always creates a brand-new board (see Decision #9) — named on the spot
-3. Enter the recipient's email address
-4. An expiring invite link is generated — an opaque, high-entropy token, **not signed, not a JWT** (Decision #36). **No real email is sent** (Decision #38): the link is shown directly in the UI for you to copy and send the recipient yourself, by whatever means.
-5. Role is hardcoded to Viewer for v1 — no picker (see Decision #10)
+## Step 2: Domain Model (current)
 
-### Journey 4: Receiving a shared board — ✅ Built
-1. Recipient opens the invite link (however they received it — not via an automated email)
-2. If they don't have an account yet, they set one up; if they do, they're logged in directly
-3. They land directly on the shared board — no separate "accept invite" step
-4. As Viewer: can see all items on the board and open the underlying links (tweets/bookmarked pages) in a new tab, same as owner browsing
-5. Cannot add, remove, edit items, or manage sharing on the board
-6. **Known gap:** neither side has a list view back to shared boards afterward — see the high-priority item in Future Extensions/Backlog, earlier in this doc
-
-## Step 2: Domain Model
-
-Entities identified from the four journeys, and why each earns its own table rather than being folded into another:
-
-- **User** — the account table. Appears in two different relationships (the owner who creates boards/connections, and a recipient who receives access) but it's the same entity both times — the relationship differs, not the underlying thing.
-- **Connection** — one authorized link to a source (Twitter OAuth tokens + expiry, or the browser extension's registration + last-synced time). Needs its own entity because a background ingestion process reads it again on every future run.
-- **Item** — the normalized shape of "one bookmark," regardless of source (title, url, source, folder path if applicable, preview data, saved_at). Lets one UI component render items from any source, and is what a Board actually references.
-- **Board** — a purpose-built sharing container, created only when items are explicitly selected and shared. Not the same as the default Twitter/Browser dashboard views, which are just "all your own items, filtered by source" — no Board involved there, since the owner always sees everything directly.
-- **Access Grant** — conceptually "a board grants a role to a user." One row represents both stages: first a pending invite keyed by email, then the same row becomes an accepted share by adding `user_id` when the invite is claimed.
+- **User** — the account table.
+- **Item** — a study resource: title, URL, personal notes, free-text tags, optional image. What Learning Plans and Boards both reference.
+- **ItemTag** — a free-text, multi-valued tag on one Item. No separate tag registry or global vocabulary — a tag exists the moment it's used on an item, nowhere else.
+- **LearningPlan** / **PlanItem** — a named grouping of a user's own Items, each with its own status/priority/target date. Lives inside Items' own schema and service — not a separate microservice (Decision #85).
+- **Board** — a purpose-built sharing container, populated only by explicitly adding items.
+- **BoardItem** — the Board↔Item join, carrying its own denormalized display snapshot (title/url/tags/etc., Decisions #37/#94) captured at add-time, not a live reference.
+- **AccessGrant** — "a board grants a role to a user." One row spans both states: pending invite (keyed by email) becomes an accepted grant (`user_id` filled in) when claimed.
+- **Connection** — one authorized link to a source (Twitter OAuth tokens, or the browser extension's registration). Real, built, but dormant — not exercised by the live product (Decisions #60/#61).
 
 ```mermaid
 erDiagram
-  USER ||--o{ CONNECTION : authorizes
-  CONNECTION ||--o{ ITEM : produces
+  USER ||--o{ ITEM : owns
+  ITEM ||--o{ ITEMTAG : "tagged with"
+  USER ||--o{ LEARNINGPLAN : creates
+  LEARNINGPLAN ||--o{ PLANITEM : contains
+  PLANITEM }o--|| ITEM : references
   USER ||--o{ BOARD : creates
-  BOARD }o--o{ ITEM : contains
-  BOARD ||--o{ ACCESS_GRANT : "shared via"
-  ACCESS_GRANT }o--|| USER : "grants role to"
+  BOARD ||--o{ BOARDITEM : contains
+  BOARDITEM }o--|| ITEM : "snapshots at add-time"
+  BOARD ||--o{ ACCESSGRANT : "shared via"
+  ACCESSGRANT }o--|| USER : "grants role to"
+  USER ||--o{ CONNECTION : authorizes
 ```
 
-Relationships in plain language:
-`User` authorizes many `Connection`s → each `Connection` produces many `Item`s → `User` creates many `Board`s → `Board` contains many `Item`s (many-to-many) → `Board` is shared via many `Access Grant`s → each `Access Grant` grants a role to one `User` (the recipient).
+Relationships in plain language: `User` owns many `Item`s, each with multiple `ItemTag`s. `User` creates many `LearningPlan`s; each contains `PlanItem`s that reference (not copy) a real `Item`. `User` creates many `Board`s; each `Board` contains `BoardItem`s — a snapshot of an `Item`, not a live link. `Board` is shared via `AccessGrant`s, each granting one `User` a role. `Connection` exists but is dormant.
 
-This section intentionally stays conceptual; the concrete columns and constraints are documented in Step 4.
+This section stays conceptual; concrete columns and constraints are in Step 4.
 
-## Step 3: API & Service Boundaries
+## Step 3: API & Service Boundaries (current)
 
 **Five runtime services** — four own data, plus a stateless Gateway in front of them:
 
-- **Gateway** — owns no data. Validates the JWT once per request, attaches user identity, routes to the right service. Coarse-grained auth check only ("is this a valid logged-in user") — fine-grained role checks (can *this* user edit *this* board) live inside Board service, since only it knows the role for that specific board.
-- **Auth service** — owns `User`. Verbs: signup, login, issue/refresh JWT.
-- **Items service** — owns `Item`. Verbs: ingest (write a new normalized item — called by connectors), list/get items (called by the UI directly, and by Board service when an owner adds an item to a board).
-- **Connectors** (Twitter — OAuth authorization built, bookmark fetch/sync pending; Browser — fully built) — own `Connection`. Verbs: authorize, fetch/sync from the external source, normalize, then call Items service's ingest endpoint. Connectors do not store `Item` themselves — they're workers, not data owners, which keeps a single source of truth for items regardless of source.
-- **Board service** — owns `Board`, the Board↔Item join, and `Access Grant`. Verbs: create board, add/remove items (validating each against Items at add-time, then storing a display-field snapshot), invite, list board contents (read from Board's own stored snapshot — **current behavior is Decision #37**, which superseded the original live-composition design in Decision #11).
+- **Gateway** — owns no data. Validates the JWT once per request, attaches user identity, routes to the right service. Coarse-grained check only ("is this a valid logged-in user") — fine-grained role checks (can *this* user edit *this* board) live inside Board service, since only it knows the role for that specific board.
+- **Auth service** — owns `User`, `RefreshToken`, `OAuthClient` (service identities). Verbs: signup, login, issue/refresh/revoke JWTs, issue service tokens via client-credentials.
+- **Items service** — owns `Item`, `ItemTag`, `LearningPlan`, `PlanItem`. Verbs: create/list/get/patch/delete items; the same for Learning Plans and their items. Ingest also accepts a service token (for Connectors), not just a user token.
+- **Board service** — owns `Board`, `BoardItem`, `AccessGrant`. Verbs: create board, add/remove items (validates against Items at add-time using the caller's own token, then stores a display-field snapshot — Decisions #37/#94), invite, accept invite, list own/shared boards.
+- **Connectors** — owns `Connection`. Real, working OAuth2+PKCE authorization against Twitter/X and a browser-extension push-token flow — but dormant in the live product (Decisions #60/#61); no live fetch/sync path is actually exercised today.
 
 ```mermaid
 flowchart TD
     UI[Web UI] --> GW[Gateway<br/>validates JWT, routes]
-    GW --> AUTH[Auth Service<br/>owns User, sessions]
-    GW --> ITEMS[Items Service<br/>owns Item catalog, all sources]
+    GW --> AUTH[Auth Service<br/>owns User, tokens, service identities]
+    GW --> ITEMS[Items Service<br/>owns Item, tags, Learning Plans]
     GW --> BOARD[Board Service<br/>owns Board, sharing, access]
-    CONN[Connectors<br/>Browser built,<br/>Twitter: OAuth built, sync pending] -->|ingest new items| ITEMS
+    GW -.->|dormant, not exercised| CONN[Connectors<br/>owns Connection]
+    CONN -.->|would ingest via| ITEMS
     BOARD -->|validates + snapshots item, at add-time only| ITEMS
 ```
 
-Note what the diagram does *not* show: there is no arrow from viewing a board back to Items. Board reads its own stored snapshot on every view (owner or Viewer) — the only time Board ever calls Items is when an owner adds an item to a board (Decision #37).
+Note what the diagram does *not* show: no arrow from viewing a board back to Items — Board reads its own stored snapshot on every view. The only time Board ever calls Items is when an owner adds an item to a board.
 
-**Internal service-to-service auth (resolved):** OAuth2 client-credentials flow — see Decision #12 (design intent) and Decision #41 (actually built).
+**Internal service-to-service auth:** OAuth2 client-credentials flow (Decision #41) — a service holds its own `client_id`/`client_secret`, trades it for a short-lived service token carrying a `client_id` claim instead of a `sub` claim.
 
-## Step 4: Data Schema
+## Step 4: Data Schema (current)
 
-**Data separation:** one Postgres instance, one schema per service (see Decision #13). **FK rule:** real foreign keys within a service's own schema; cross-schema references are plain UUID columns validated by application code, never a database-level FK (see Decision #14).
+**Data separation:** one Postgres instance, one schema per service (Decision #13). **FK rule:** real foreign keys within a service's own schema; cross-schema references are plain UUID columns validated by application code, never a database-level FK (Decision #14).
 
 ### `auth` schema
-- **users**: id (uuid, PK, default `gen_random_uuid()` — requires the `pgcrypto` extension), email (text, unique, not null — lowercased by application code before every write/read, not `citext`), password_hash (text, not null — Argon2id via `argon2-cffi`, see Decision #18), created_at (timestamptz, default `now()`), updated_at (timestamptz, default `now()`, maintained by application code on every write)
-  - *Migration note: schema creation and table DDL are managed via Alembic, one migration history per service — see Decision #19.*
-- **refresh_tokens**: id (uuid, PK, default `gen_random_uuid()`), user_id (uuid, real FK → `users.id`, same schema), token_hash (text, unique, not null — the opaque refresh token is hashed before storage, never stored raw), expires_at (timestamptz, not null), revoked_at (timestamptz, nullable — set on logout *or* on rotation), replaced_by_id (uuid, nullable, real FK → `refresh_tokens.id`, same schema, self-referential — set only when rotation revoked this row), created_at (timestamptz, default `now()`)
-  - *Design note: this table is what makes Decision #26 (DB-tracked, revocable refresh tokens) real — `/refresh` looks up the row by hash, checks `revoked_at IS NULL AND expires_at > now()`. `replaced_by_id` is what Decision #28 (rotation + reuse detection) adds: it's the difference between "revoked because rotated" (a theft signal if presented again) and "revoked because the user logged out" (expected).*
-- **oauth_clients**: id (uuid, PK, default `gen_random_uuid()`), client_id (text, unique, not null — e.g. `"connectors-service"`), client_secret_hash (text, not null — hashed the same principled way as passwords, never stored raw), client_name (text, not null), created_at (timestamptz, default `now()`)
-  - *Design note: this is what makes Decision #41 (OAuth2 client-credentials) real — `POST /oauth/token` verifies `client_id`/`client_secret` against this table and, on success, signs a service token with a `client_id` claim instead of a `sub` claim. One row for v1 (Connectors), created via a one-off setup step rather than a self-service registration API — same "no real audience for a repeatable flow" reasoning as Decision #8.*
-
-### `connectors` schema
-- **connections**: id (uuid, PK, default `gen_random_uuid()`), owner_user_id (uuid, soft ref → auth.users), type (`twitter` | `browser_chrome` | `browser_firefox`), push_token_hash (text, unique, nullable — browser push auth, hashed before storage, Decision #42; null for Twitter connections), oauth_access_token / oauth_refresh_token / token_expires_at (Twitter only, nullable, now actually populated by the OAuth callback — Decision #56), last_synced_at (timestamptz, nullable), created_at (timestamptz, default `now()`)
-  - *Design note: one table with nullable type-specific columns rather than separate tables per connector type — simpler for v1, at the cost of some always-null columns depending on type.*
-  - *Migration note: `POST /connections` creates this row and returns the plaintext `push_token` exactly once (Decision #43) — only `push_token_hash` is ever persisted, same pattern as refresh/invite tokens. A `twitter` row, unlike a browser row, is never created via `POST /connections` at all — only by a successful `/twitter/callback` exchange.*
-- **oauth_states**: id (uuid, PK), state (text, unique, not null — the CSRF token handed to X, looked up unhashed since it's short-lived and single-use, not a long-lived credential), owner_user_id (uuid, soft ref → auth.users), code_verifier (text, not null — PKCE's server-held secret, see Decision #56), expires_at (timestamptz, not null — 10 minutes), created_at (timestamptz, default `now()`)
-  - *Design note: rows are deleted at callback time regardless of whether the token exchange that follows succeeds — this table only ever needs to answer "is this state genuine and unused," never "what happened with this attempt historically."*
+- **users**: id (uuid PK), email (unique, lowercased by application code), password_hash (Argon2id, Decision #18), first_name (nullable, Decision #73), created_at, updated_at
+- **refresh_tokens**: id, user_id (real FK), token_hash (unique, hashed, never stored raw), expires_at, revoked_at (nullable — logout *or* rotation), replaced_by_id (nullable, self-referential FK — set only on rotation). `replaced_by_id` is the difference between "revoked because rotated" (a reuse of this exact row is a theft signal) and "revoked because the user logged out" (expected) — Decisions #26/#28.
+- **oauth_clients**: id, client_id (unique, e.g. `"connectors-service"`), client_secret_hash (hashed like a password), client_name — what makes service-to-service auth real (Decision #41)
 
 ### `items` schema
-- **items**: id (uuid, PK, default `gen_random_uuid()` — same Postgres-side generation as `auth.users`, Decision #17), owner_user_id (uuid, soft ref → auth.users), source (`twitter` | `chrome` | `firefox`), external_id (source's own bookmark ID), title, url, folder_path (nullable — browser only), preview_text / preview_media_url (nullable — Twitter), favicon_url (nullable — browser), saved_at (when bookmarked at the source), created_at (when ingested, default `now()`)
-  - **Unique constraint:** `(owner_user_id, source, external_id)` — the database still rejects a duplicate INSERT at the constraint level; the app layer catches that and returns the existing item as an idempotent success rather than surfacing the raw rejection to the caller (Decision #33).
+- **items**: id, owner_user_id (soft ref), source (`manual` | `chrome` | `firefox` | `twitter`), external_id, title, url, folder_path (nullable, browser-only, dormant), preview_text / preview_media_url / favicon_url (nullable), notes (nullable, Decision #64), saved_at, created_at. **Unique constraint** `(owner_user_id, source, external_id)` — a duplicate insert is caught and returned as an idempotent success, not an error (Decision #33).
+- **item_tags**: item_id (real FK), tag (text) — composite PK, free-text, no separate tag table (Decision #62)
+- **learning_plans**: id, owner_user_id (soft ref), name, description (nullable), created_at (Decision #85)
+- **plan_items**: plan_id (real FK), item_id (**real FK** — same schema, unlike Board's soft reference), status, priority (nullable), target_date (nullable), order_index, estimated_effort_minutes (nullable, not yet surfaced in the UI) — composite PK (plan_id, item_id)
 
 ### `board` schema
-- **boards**: id (uuid, PK, default `gen_random_uuid()`), owner_user_id (uuid, soft ref → auth.users), name, created_at
-- **board_items** (many-to-many join): board_id (real FK → boards.id, same schema), item_id (uuid, soft ref → items.items), added_at — composite PK (board_id, item_id)
-  - **Denormalized display fields** (Decision #37): title, url, favicon_url, preview_text, preview_media_url — a snapshot copied from Items at add-time, not a live reference. Viewing a board reads these directly; it never calls Items.
-- **access_grants**: id (uuid, PK), board_id (real FK → boards.id, same schema), invited_email, user_id (nullable, soft ref → auth.users — filled in once accepted), role (`viewer` | `editor` — **only `viewer` is ever actually assigned today**, see Decision #10), invite_token_hash (unique — a random opaque high-entropy token, hashed before storage; **not signed, not a JWT** — the raw token is returned exactly once, at creation, for manual sharing, see Decision #36), invite_token_expires_at, status (`pending` | `accepted`), created_at, accepted_at
-  - *Design note: one table models both states of "Access Grant" from Step 2 (pending-by-email, settled-by-user_id) via nullable `user_id` + `status`, rather than two separate tables — the pending→accepted transition is a single row update.*
-  - *FK note: `board_id` is a real FK (same-schema, Board service owns both); `user_id` is a soft reference (crosses into `auth` schema — see Decision #14).*
+- **boards**: id, owner_user_id (soft ref), name, owner_email / owner_first_name (denormalized from Auth's `/me` at creation time — Decisions #70/#73), created_at
+- **board_items**: board_id (real FK) + item_id (soft ref, composite PK) — **denormalized snapshot** (Decision #37, widened by Decision #94): title, url, favicon_url, preview_text, preview_media_url, tags (`text[]`) — copied from Items at add-time, never a live reference. Viewing a board never calls Items.
+- **access_grants**: id, board_id (real FK), invited_email, user_id (nullable soft ref — filled in on accept), role (`viewer` | `editor`, **only `viewer` ever actually assigned** — Decision #10), invite_token_hash (unique, hashed — **not signed, not a JWT**, Decision #36), invite_token_expires_at, status (`pending` | `accepted`), created_at, accepted_at
 
-## Web UI — Structure & Layers
+### `connectors` schema (dormant — real code, not exercised by the live product)
+- **connections**: one authorized source link (Twitter OAuth tokens + expiry, or a browser extension's push-token registration)
+- **oauth_states**: short-lived PKCE state for the Twitter OAuth handshake, deleted the moment the callback consumes it
 
-The web UI (`web/`, Decisions #49–52) is organized as three layers, each only trusting the one below it — see `how-it-works.md`'s Web UI section for the plain-English version of what each layer does. This section maps that same model onto the actual files, now covering all three build stages (auth/routing, sharing, receiving).
+## Web UI — Structure & Layers (current)
+
+The web UI (`web/`) is organized as three layers, each only trusting the one directly below it:
 
 ```mermaid
 flowchart TD
-    subgraph Pages ["Layer 3 — Pages, Routing & Components"]
+    subgraph Pages ["Layer 3 — Pages, Layout & Components"]
         APP[App.tsx<br/>route tree]
-        PR[ProtectedRoute.tsx<br/>gatekeeper, stashes return path]
-        LP[LoginPage.tsx]
-        SP[SignupPage.tsx]
-        DP[DashboardPage.tsx<br/>fetches items, splits by source]
-        BP[BoardPage.tsx<br/>/board/:boardId]
-        IAP[InviteAcceptPage.tsx<br/>/invite/:token]
-        TT[TwitterTiles.tsx]
-        BB[BrowserBookmarks.tsx]
-        FT[FolderTree.tsx<br/>recursive]
-        BIL[BoardItemsList.tsx]
-        SB[ShareBar.tsx]
-        SD[ShareDialog.tsx]
+        PR[ProtectedRoute.tsx<br/>gatekeeper]
+        LAYOUT[AppLayout / AppHeader / Sidebar]
+        LP[LoginPage / SignupPage]
+        LIB[LibraryPage<br/>resources + Continue Learning]
+        PLANS[PlansPage / PlanDetailPage]
+        BOARDS[BoardsPage<br/>MyBoards + SharedWithMe]
+        BP[BoardPage<br/>/board/:boardId]
+        IAP[InviteAcceptPage<br/>/invite/:token]
     end
     subgraph StateLayer ["Layer 2 — Shared State"]
-        AC[AuthContext.tsx<br/>isAuthenticated flag, global]
-        SC[SelectionContext.tsx<br/>selected item ids, dashboard-scoped]
+        AC[AuthContext<br/>isAuthenticated flag, global]
+        SC[SelectionContext<br/>selected item ids]
     end
     subgraph APILayer ["Layer 1 — Talks to Gateway"]
-        AUTHAPI[api/auth.ts]
-        ITEMSAPI[api/items.ts]
-        BOARDAPI[api/board.ts]
-        TWITTERAPI[api/twitter.ts]
-        CLIENT[api/client.ts<br/>apiRequest: attaches token,<br/>refreshes + retries on 401,<br/>holds tokens in localStorage]
+        APIS[api/auth.ts, items.ts,<br/>board.ts, plans.ts]
+        CLIENT[api/client.ts<br/>apiRequest: attaches token,<br/>refreshes + retries on 401]
     end
     APP --> PR
-    PR --> DP & BP & IAP
-    DP --> TT & BB & SB
-    BB --> FT
-    BP --> BIL
-    SB --> SD
-    DP & TT & FT & SB --> SC
-    LP & SP & PR --> AC
-    SD --> BOARDAPI
-    IAP --> BOARDAPI
-    BP --> BOARDAPI
-    DP --> ITEMSAPI
-    DP --> TWITTERAPI
-    AC --> AUTHAPI
-    AUTHAPI & ITEMSAPI & BOARDAPI & TWITTERAPI --> CLIENT
+    PR --> LIB & PLANS & BOARDS & BP & IAP
+    LAYOUT --> LIB & PLANS & BOARDS & BP
+    LIB & BP --> SC
+    LP & PR --> AC
+    LIB & PLANS & BOARDS & BP & IAP --> APIS
+    AC --> APIS
+    APIS --> CLIENT
     CLIENT -->|HTTP, Bearer token| GW[Gateway :8000]
 ```
 
-| Layer | File | Role |
+| Layer | File(s) | Role |
 |---|---|---|
-| 1 — API | `src/api/client.ts` | The only place that calls `fetch`. Owns token storage (localStorage), attaches the access token to every request, and on a `401` does one refresh-and-retry before giving up. Also the module boundary where a failed refresh fires the `study_hub:logged_out` browser event that layer 2 listens for. |
-| 1 — API | `src/api/auth.ts`, `items.ts`, `board.ts`, `twitter.ts` | Thin, specific calls built on `client.ts` — login/signup/logout; listing items; creating boards, adding items, inviting, accepting invites, fetching a board; getting X's OAuth authorize URL. |
-| — | `src/types/api.ts` | TypeScript interfaces mirroring the backend's Pydantic response schemas — no logic, just compile-time contract-checking (Decision #50). |
-| — | `src/lib/folderTree.ts`, `favicon.ts` | Pure helper functions, not state — turning a flat item list into a nested folder tree, and resolving a favicon from a bookmark's own URL when none was synced. |
-| 2 — Shared state | `src/auth/AuthContext.tsx` | The single `isAuthenticated` flag, global (wraps the whole route tree), via React's Context API (Decision #51). Initializes from whatever's already in storage; listens for `study_hub:logged_out`. |
-| 2 — Shared state | `src/dashboard/SelectionContext.tsx` | A second, page-scoped Context (only wraps the dashboard) tracking which item ids are checked for sharing — added specifically because `FolderTree` is recursive and several levels deep, where prop-drilling a toggle callback through every folder would be exactly what Context exists to avoid. |
-| 3 — Pages/Routing | `src/App.tsx` | The route table: `/login`, `/signup` public; `/`, `/board/:boardId`, `/invite/:token` all nested under the gatekeeper. |
-| 3 — Pages/Routing | `src/components/ProtectedRoute.tsx` | The gatekeeper — checks `isAuthenticated`; if false, redirects to `/login` carrying the current location in navigation state (`state={{from: location}}`) so `LoginPage`/`SignupPage` can send the user back afterward instead of always to the dashboard (Decision #55 fixed a gap in this: the cross-links *between* those two pages didn't forward that state). |
-| 3 — Pages | `src/pages/LoginPage.tsx`, `SignupPage.tsx` | Auth forms; navigate to the stashed return path on success, `/` by default. |
-| 3 — Pages | `src/pages/DashboardPage.tsx` | Fetches all items once, splits by source, renders `TwitterTiles` + `BrowserBookmarks` inside a `SelectionProvider`, with `ShareBar` for the selection-to-share flow. Also has the "Connect Twitter" button (calls `api/twitter.ts`, then a real browser navigation to X) and reads a `?twitter=connected` query param on mount to show a success message after the OAuth callback redirects back here. |
-| 3 — Pages | `src/pages/BoardPage.tsx` | `/board/:boardId` — fetches one board (with its denormalized item snapshot and the caller's `role`) and renders it via `BoardItemsList`. Revisitable, not just a one-time landing page. |
-| 3 — Pages | `src/pages/InviteAcceptPage.tsx` | `/invite/:token` — by the time this renders, `ProtectedRoute` has already guaranteed the visitor is logged in; its only job is call accept, then redirect straight to `/board/:id`. No manual "accept" step, per Journey 4. |
-| 3 — Components | `TwitterTiles.tsx`, `BrowserBookmarks.tsx`, `FolderTree.tsx` | Dashboard rendering — `FolderTree` renders itself recursively, one call per folder-nesting level, each with its own independent collapsed/expanded state. |
-| 3 — Components | `BoardItemsList.tsx` | Board's flat item list — no tile/folder split, since Board's denormalized snapshot never stores source or folder_path (Decision #37). |
-| 3 — Components | `ShareBar.tsx`, `ShareDialog.tsx` | Selection summary + select-all/clear, and the create-board → add-items → create-invite flow, surfacing the resulting link directly (no real email-sending exists yet). |
+| 1 — API | `api/client.ts` | The only place that calls `fetch`. Owns token storage (localStorage), attaches the access token, does one refresh-and-retry on `401`. Fires `study_hub:logged_out` on a failed refresh. |
+| 1 — API | `api/auth.ts`, `items.ts`, `board.ts`, `plans.ts` | Thin, specific calls built on `client.ts`. |
+| — | `types/api.ts` | TypeScript interfaces mirroring the backend's Pydantic response shapes — compile-time contract-checking only, no logic. |
+| — | `lib/` | Pure helpers: `filterResources.ts` (search/tag filter, shared between Library and its ShareBar), `tagColor.ts` (deterministic per-tag color, hashed not stored), `sourceLabel.ts`, `formatDate.ts`, `favicon.ts`, `folderTree.ts` (dormant browser-bookmarks path only). |
+| 2 — Shared state | `auth/AuthContext.tsx` | The single `isAuthenticated` flag, global, via React Context. |
+| 2 — Shared state | `dashboard/SelectionContext.tsx` | Selected item ids for sharing — page-scoped, not global. |
+| 3 — Pages | `pages/LibraryPage.tsx` | The main resource list — search, tag filtering, sort, list/grid view, the Continue Learning section, the ShareBar selection flow. |
+| 3 — Pages | `pages/PlansPage.tsx`, `PlanDetailPage.tsx` | Learning Plans list and detail (status/priority/target-date editing, Add Resources). |
+| 3 — Pages | `pages/BoardsPage.tsx` | "Your Boards" + "Shared With Me," via `MyBoards.tsx`/`SharedWithMe.tsx`. |
+| 3 — Pages | `pages/BoardPage.tsx` | `/board/:boardId` — one board's denormalized item snapshot plus the caller's role; owner-only Add/Remove/Invite controls, viewer-only Save to My Resources. |
+| 3 — Pages | `pages/InviteAcceptPage.tsx` | `/invite/:token` — `ProtectedRoute` already guarantees a logged-in visitor; this just calls accept, then redirects to `/board/:id`. |
+| 3 — Layout | `layout/AppLayout.tsx`, `components/AppHeader.tsx`, `components/Sidebar.tsx` | The shared shell (Decision #75) every protected page renders inside. |
+| 3 — Components | `StudyResources.tsx`, `ResourceFormDialog.tsx`, `ContinueLearning.tsx` | Library's own building blocks. |
+| 3 — Components | `PlanCards.tsx`, `PlanFormDialog.tsx`, `PlanItemsList.tsx`, `AddItemsToPlanDialog.tsx` | Learning Plans' building blocks. |
+| 3 — Components | `BoardItemsList.tsx`, `AddItemsToBoardDialog.tsx`, `InviteToBoardDialog.tsx` | Board's building blocks. |
+| 3 — Components | `BrowserBookmarks.tsx`, `FolderTree.tsx` | Dormant browser-bookmarks display path (Decision #60) — not reachable from the live product's normal navigation. |
+| — | `AffirmationWidget.tsx`, `CornerNudge.tsx` | Small static, cosmetic-only widgets (Decisions #72/#83) — no backend, no state beyond a local timer. |
 
-**Directory layout, same information as a picture:**
-
-```
-web/
-├─ src/
-│  ├─ types/
-│  │  └─ api.ts               # backend response shapes, mirrored
-│  ├─ lib/
-│  │  ├─ folderTree.ts        # flat items -> nested folder tree
-│  │  └─ favicon.ts           # resolve a favicon from a bookmark's URL
-│  ├─ api/
-│  │  ├─ client.ts            # Layer 1 — fetch, token storage, refresh+retry
-│  │  ├─ auth.ts              # Layer 1 — login/signup/getCurrentUser/logout
-│  │  ├─ items.ts             # Layer 1 — list items
-│  │  ├─ board.ts             # Layer 1 — create/get board, add item, invite, accept
-│  │  └─ twitter.ts           # Layer 1 — get X's OAuth authorize URL
-│  ├─ auth/
-│  │  └─ AuthContext.tsx      # Layer 2 — shared isAuthenticated flag (global)
-│  ├─ dashboard/
-│  │  ├─ SelectionContext.tsx # Layer 2 — selected item ids (dashboard-scoped)
-│  │  ├─ ShareBar.tsx         # Layer 3 — selection summary + share trigger
-│  │  └─ ShareDialog.tsx      # Layer 3 — create board -> add items -> invite
-│  ├─ components/
-│  │  ├─ ProtectedRoute.tsx   # Layer 3 — gatekeeper, stashes return path
-│  │  ├─ TwitterTiles.tsx     # Layer 3 — flat tile grid
-│  │  ├─ BrowserBookmarks.tsx # Layer 3 — per-source folder trees
-│  │  ├─ FolderTree.tsx       # Layer 3 — recursive folder rendering
-│  │  └─ BoardItemsList.tsx   # Layer 3 — flat board item list
-│  ├─ pages/
-│  │  ├─ LoginPage.tsx        # Layer 3
-│  │  ├─ SignupPage.tsx       # Layer 3
-│  │  ├─ DashboardPage.tsx    # Layer 3 — real content: items + sharing
-│  │  ├─ BoardPage.tsx        # Layer 3 — /board/:boardId
-│  │  └─ InviteAcceptPage.tsx # Layer 3 — /invite/:token
-│  ├─ App.tsx                 # Layer 3 — route tree, wraps AuthProvider
-│  ├─ main.tsx                 # entry point, mounts <App />
-│  └─ index.css                 # shared styling
-└─ package.json
-```
+Full current file list: `web/src/` — `api/`, `auth/`, `components/`, `dashboard/`, `layout/`, `lib/`, `pages/`, `types/`.
 
 ## Architectural Learnings
 
-A compact record of the strongest lessons from real decisions and real trial-and-error while building this — not a general system-design syllabus, just what actually happened here and why it mattered. Full reasoning for each lives in the Decision Log; this is the condensed, teachable version.
+A compact record of the strongest lessons from real decisions and real trial-and-error while building this — not a general system-design syllabus, just what actually happened here and why it mattered. Full reasoning for each lives in the Decision Log; this is the condensed, teachable version. A few examples below reference "bookmarks" — they happened pre-pivot, while this was still `bookmarks-hub`, but the underlying lesson is unchanged and applies identically to today's Items/tags/Learning Plans.
 
 ### Why separate services, not a simpler modular monolith?
 **Problem:** This project exists partly to build real hands-on fluency in service boundaries and microservices. A modular monolith (one codebase, clean internal module boundaries) would be faster to build and would work fine for a single-user app.
@@ -343,9 +307,13 @@ A compact record of the strongest lessons from real decisions and real trial-and
 **Why:** This project had already answered "how do we hold a short-lived, single-use, server-side secret" three times before — refresh tokens, invite tokens, push tokens — always the same shape: opaque value, DB-tracked, checked once, then done. Reusing that shape here rather than inventing a fourth mechanism was the more consistent choice, and it survives a service restart between the two steps, which in-memory storage wouldn't.
 **Trade-off:** One more small table to maintain, and a bit of manual cleanup reasoning (expired-but-never-used rows just age out rather than being actively swept) — a real but minor cost, consistent with how this project already treats invite tokens the same way.
 
-## Near-Term Direction
+## Near-Term Direction — superseded, scope frozen
 
-Superseded the previous 5-item version of this list (Bookmarks cleanup, board-visibility RBAC, and stabilization are all done — Decisions #68/#70/#71; live Twitter/X sync stays deliberately retired per Decision #61, not "finished" later). This is the agreed next-stage roadmap, not a full system-design roadmap — reviewed and agreed with the user before any of it is built, one phase at a time:
+**Study Hub's functional scope froze on 2026-09-12.** The project is feature-complete; work from here is documentation, verification, and interview-readiness (see `docs/learning-pack/`), not new product features. The roadmap below is kept as historical record — do not treat it as active guidance.
+
+**What actually happened, against this list:** Phase 1 (Learning Plans + Continue Learning) shipped in full (Decision #85). Phase 2 (real deployment) shipped in full — Railway + Cloudflare, verified live (Decisions #87–#91). Phases 3–7 below (completion/takeaways, Interview Prep Track content, the GitHub-push milestone as a distinct phase, Review queue, async enrichment) were **never started and will not be** — the freeze happened before reaching them, not after evaluating and rejecting each one. Separately, from the older backlog further below: board visibility on both sides of a share shipped (Decision #68), and inviting a second person to an existing board shipped (Decision #76) — both close gaps that list still describes as open.
+
+The original roadmap text follows, unedited, for historical accuracy:
 
 1. **Learning Plans + Continue Learning/This Week.** Named plans (e.g. "System Design Interview Prep — 4 Weeks"), existing resources added to a plan with status/order/priority/target date, plus a "what's next" view derived client-side from plan-item state. New tables in the existing Items service's schema (not a new microservice) — same precedent as tags/notes (Decisions #62/#64). Highest leverage, lowest architectural risk; everything below depends on this existing.
 2. **First real deployment pass — pulled forward to right after Phase 1,** not left until after the whole roadmap. Deployment problems (real env vars per service, CORS against a real domain, migrations against a hosted Postgres) are cheaper to find and fix while the system is still five services and no new infra, and "learn deployment for real" is its own stated goal independent of feature completeness. Re-verify actual current hosting options/pricing at that point — don't reuse the known-stale Render note.
@@ -363,17 +331,19 @@ Superseded the previous 5-item version of this list (Bookmarks cleanup, board-vi
 
 **Standing rule:** a new technology or architectural pattern (a cache, a message queue, container orchestration, sharding, a different database, etc.) gets introduced only when a real feature or a real problem in this project creates an actual reason for it — never because it's a common system-design interview topic. `sailpoint-prep-coverage-map.md`'s "Topics to study separately later" section already names several such technologies deliberately left unbuilt, precisely so they don't get forced in artificially.
 
-## Future Extensions / Backlog (deliberately out of v1 — captured here so nothing gets lost)
+## Future Extensions / Backlog — historical, several items since built
 
-- **HIGH PRIORITY — Board visibility/audit views, on both sides of a share.** Surfaced testing Stage 3 (receiving) end to end with a real second account: after accepting an invite and clicking "Back to dashboard," there is currently no way for that recipient to find their way back to the board again — no list, nothing. The only way back is re-visiting the original invite link, which still works (invites don't expire for 7 days, re-accepting is idempotent, Decision #39) but isn't a real answer. Two distinct views are needed, neither built yet:
+Kept unedited below for history; **✅ notes added inline** where a later decision closed the gap. Everything without a ✅ note remains genuinely undone, and under the scope freeze above, will stay that way.
+
+- **HIGH PRIORITY — Board visibility/audit views, on both sides of a share.** ✅ **Built — Decision #68.** Both views shipped: `GET /board/mine` (owner) and `GET /board/shared-with-me` (recipient), surfaced as `MyBoards.tsx`/`SharedWithMe.tsx` on the Boards page. Original text: Surfaced testing Stage 3 (receiving) end to end with a real second account: after accepting an invite and clicking "Back to dashboard," there is currently no way for that recipient to find their way back to the board again — no list, nothing. The only way back is re-visiting the original invite link, which still works (invites don't expire for 7 days, re-accepting is idempotent, Decision #39) but isn't a real answer. Two distinct views are needed, neither built yet:
   - **Recipient side — "Shared with me":** a list, on the dashboard, of every board this user has accepted an invite to (name, link to `/board/:id`).
   - **Owner side — "Boards I've shared":** a read-only view of every board this user owns that has active grants — board name, the items on it, who it's shared with, and when (invited-at / accepted-at timestamps). Right now an owner has *no visibility at all* into who has access to what they've shared, beyond remembering it themselves.
   Both need real backend work first — Board service currently has no "list my boards" endpoint at all (only create-one, get-one-by-id, add/remove item, invite, accept). 📚 SailPoint Prep — Topic 11 (IAM): the owner-side view in particular is a small-scale version of exactly what SailPoint IdentityIQ does — access visibility / entitlement review, "who has access to what, granted when" — worth explicitly building out as a real talking point, not just noting as a gap.
-- **Books-read module**: track books read, with personal summaries/notes. Different in kind from the Twitter/Browser connectors — this needs an actual content *editor* (writing original text), not just an ingestion pipeline pulling from an external source. Will likely need its own entity (e.g. `ReadingEntries`: title, author, summary body, rating, date) and a text-editing UI, not a tile-preview UI. Worth revisiting whether "Board" stays generic enough to hold this, or whether it becomes its own module — decide when we get here.
-- **Editor role at invite time** (see Decision #10) — role picker deferred, hardcoded Viewer for v1.
-- **Add selection to an existing shared board** (see Decision #9) — deferred, v1 always creates a new board.
-- **Google Sign-In as an additional login method** (see Decision #6) — deferred, own auth built first.
-- **Real-time live sync + in-app alerts**: e.g. bookmarking a tweet in another tab should show up automatically with a notification, without a page refresh. Undecided whether this belongs in v1. Technical nuance worth remembering: browser bookmarks *can* genuinely be real-time (the extension can listen to native events like `chrome.bookmarks.onCreated` and push instantly), but Twitter *cannot* — X's API has no bookmark webhook, so any "live" Twitter updates would really be periodic polling made to look real-time, not a true push. Would also need a push channel to the open browser tab (WebSocket or Server-Sent Events) to deliver the alert.
+- **Books-read module**: genuinely never built, and now out of scope under the freeze. Track books read, with personal summaries/notes. Different in kind from the Twitter/Browser connectors — this needs an actual content *editor* (writing original text), not just an ingestion pipeline pulling from an external source. Will likely need its own entity (e.g. `ReadingEntries`: title, author, summary body, rating, date) and a text-editing UI, not a tile-preview UI. Worth revisiting whether "Board" stays generic enough to hold this, or whether it becomes its own module — decide when we get here.
+- **Editor role at invite time** (see Decision #10) — role picker deferred, hardcoded Viewer for v1. Still true; now frozen, not just deferred.
+- **Add selection to an existing shared board** (see Decision #9) — ✅ **Built — Decision #76.** An "Invite" button on `BoardPage.tsx` lets an owner add another person to a board that already exists, not just at creation time.
+- **Google Sign-In as an additional login method** (see Decision #6) — deferred, own auth built first. Still true; now frozen, not just deferred.
+- **Real-time live sync + in-app alerts**: genuinely never built, and now out of scope under the freeze. e.g. bookmarking a tweet in another tab should show up automatically with a notification, without a page refresh. Undecided whether this belongs in v1. Technical nuance worth remembering: browser bookmarks *can* genuinely be real-time (the extension can listen to native events like `chrome.bookmarks.onCreated` and push instantly), but Twitter *cannot* — X's API has no bookmark webhook, so any "live" Twitter updates would really be periodic polling made to look real-time, not a true push. Would also need a push channel to the open browser tab (WebSocket or Server-Sent Events) to deliver the alert.
 
 ---
 
@@ -474,5 +444,6 @@ Superseded the previous 5-item version of this list (Bookmarks cleanup, board-vi
 | 91 | `scripts/seed_demo_data.py`'s `GATEWAY` constant and the two generated account passwords became overridable via `GATEWAY_URL`/`OWNER_PASSWORD`/`RECEIVER_PASSWORD` env vars (each falls back to the original hardcoded/random behavior when unset) | A separate one-off script just for seeding a remote target | Rejected as needless duplication — the script already talks to Items/Board/Auth exclusively through the real Gateway API (never touches the database directly), so it was already deploy-target-agnostic in everything but these three hardcoded values. `OWNER_PASSWORD` specifically exists because the owner account already existed on Railway (signed up manually through the UI to smoke-test login) before the script ran — `signup_and_login`'s existing 409-tolerant retry only helps if the login step that follows has the right password. **Verified:** ran against the real Railway deployment — all 70 resources created under the existing owner account, "System Design Fundamentals" board created and shared, receiver invited/accepted, confirmed live in the browser by the user afterward. |
 | 92 | "Save to My Resources" — a board viewer (non-owner) can copy any item on a shared board into their own Library with one click. Reuses the existing `POST /items` endpoint exactly as manual entry does (no backend change); pre-checks the viewer's own Library (`GET /items`, fetched once per board view) to show an already-saved state instead of failing after a click, same pre-filter pattern as `AddItemsToBoardDialog` (Decision #70) | (a) A live cross-service refresh so the *board itself* shows current title/tags/etc. instead of Decision #37's write-time snapshot, closing the gap Decision #64 flagged as unresolved; (b) let a duplicate save fail and show an error | Option (a) was designed in detail (a new Board OAuth service-identity, a new Items endpoint bypassing per-user ownership since Board's own access-grant check becomes the real authorization boundary, fail-open to the stored snapshot if Items is briefly unreachable) but explicitly declined — see #93. Option (b) turned out to be moot once the actual `POST /items` behavior was checked: a duplicate `(owner, source, external_id)` isn't rejected at all, it's idempotent success (Decision #33), so there's no conflict state to handle. The copy is a **snapshot, not a live link** — `board_items` never stored `tags`/`notes` in the first place (only title/url/favicon/preview media), so the receiver's copy naturally starts bare on those fields, same as pasting the URL manually. **Verified:** `tsc -b`/lint clean (fixed one new `exhaustive-deps` warning by depending on just `board?.role` instead of the whole `board` object, avoiding a refetch on every board reload); live end-to-end test via a fresh owner/receiver pair created through the real API and a real Playwright click — button renders only for the non-owner viewer, saving flips it to a disabled "Saved" state, and the item was confirmed present in the receiver's own Library via a direct API check (title/url/image copied, tags empty as expected). |
 | 93 | Declined: making Board show live (non-stale) item data, i.e. actually closing Decision #64's flagged gap, at least for now | Build it (new Board OAuth client, new Items service-scoped batch endpoint, fail-open to the stored snapshot on Items downtime) | User's own catch during the design discussion: fixing staleness doesn't fix the actual felt problem. A receiver has no way to *know* a board changed either way — live data would still require them to revisit the board to notice anything, so the real gap is a "what changed since I last looked" signal, not stale field values. That's a materially bigger feature (some kind of last-seen/unread tracking, plus the new cross-service auth surface either fix would need) for a gap that's genuinely minor at personal scale. Board's existing write-time-snapshot behavior (Decision #37) is unchanged; this decision exists so the idea isn't silently re-proposed from scratch later without this reasoning attached. |
+| 94 | Widen `board_items`' snapshot (Decision #37) to also capture `tags`, found as a real gap in Decision #92's "Save to My Resources": a board's items had no tags to copy in the first place, so a receiver's saved copy always landed tag-less. Migration `0004` adds a `tags text[]` column, backfilled from `items.item_tags` for existing rows; `add_item` now copies `item["tags"]` at add-time same as title/url | User's first framing — "make tags global/user-independent" — considered and rejected | The actual cause wasn't tag scoping (tags were never per-user to begin with — they're plain strings on `items.item_tags`, no registry, no ownership concept at all); it was that Board's denormalized snapshot predates tags existing (Decision #62 came after Decision #37) and was never widened. "Global tags" would have been a materially bigger, different feature — a shared vocabulary across users raises real cross-account visibility questions this project has no need to open — for a problem that was actually just a missing column. **Verified:** new migration applies cleanly with a working cross-schema backfill query; 44 Board tests pass (1 new — `test_add_item_snapshots_tags`); confirmed live end to end via direct Gateway calls (tagged item → added to board → board view → both correctly show `["kafka", "system-design"]`), which is exactly the data `handleSaveToLibrary` in `BoardPage.tsx` already forwards to `createItem`. |
 
 ---

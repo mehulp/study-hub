@@ -1,5 +1,7 @@
 # Daily Startup — Quick Reference
 
+This covers **local development only**. For the production setup (Railway + Cloudflare), see `docs/deployment.md`.
+
 The whole stack is containerized (Decision #35), so daily startup is one command, not a per-service manual routine.
 
 **Only one of mp-project-study-hub / bookmarks-hub runs at a time.** `bookmarks-hub`
