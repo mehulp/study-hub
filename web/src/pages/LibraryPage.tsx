@@ -140,12 +140,14 @@ export function LibraryPage() {
               label="Your Boards"
               icon={<BoardsIcon size={20} />}
               tone="blue"
+              to="/boards"
             />
             <StatCard
               value={sharedBoards?.length ?? 0}
               label="Shared With You"
               icon={<UsersIcon size={20} />}
               tone="pink"
+              to="/boards"
             />
             <StatCard
               value={browserItems.length}

@@ -604,6 +604,21 @@ a:focus-visible {
   padding: 14px 16px;
 }
 
+/* Only the two board-related cards render as this (Decision #95) -- reset
+   the <a> defaults a plain .stat-card never needed, and a subtle hover so
+   it doesn't look identical to the three cards that stay unclickable. */
+.stat-card-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stat-card-link:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface-subtle);
+}
+
 .stat-card-icon {
   display: flex;
   align-items: center;
