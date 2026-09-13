@@ -7,6 +7,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN useradd --create-home --shell /bin/sh appuser && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8003
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=10 \

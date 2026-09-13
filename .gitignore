@@ -6,6 +6,13 @@ __pycache__/
 .DS_Store
 *.pem
 .pytest_cache/
+
+# IDE/editor artifacts -- none currently tracked, added preventively ahead
+# of the repo going public.
+.vscode/
+.idea/
+*.swp
+*.swo
 # Personal source files (progress-tracking data) -- scripts/*.csv holds the
 # curated, published subset instead (Decision #67).
 docs/Interview_Prep_Checklist_Clickable_Hyperlinks_FINAL.xlsx

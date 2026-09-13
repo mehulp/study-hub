@@ -48,6 +48,66 @@ and very likely revisiting Decision #39 alongside it, per the reasoning above.
 
 **Status:** confirmed gap, deliberately not built — scope is frozen.
 
+### No `AsyncClient` reuse for outbound HTTP calls
+
+**What happens today:** every outbound `httpx` call (Gateway's proxy — on *every* request —
+plus Board's `items_client.py`/`auth_client.py` and Connectors' `items_client.py`)
+instantiates a fresh `async with httpx.AsyncClient() as client:` per call, rather than one
+long-lived client reused across requests. httpx's own guidance recommends the latter for
+connection pooling/keep-alive.
+
+**Why not fixed now:** found during the pre-publication audit; real, but invisible at this
+app's actual traffic, and Gateway's proxy is the one place *every* request flows through —
+changing that pattern right before a public release carries more regression risk than the
+current benefit justifies. A pool-exhaustion or connection-leak bug introduced here would
+be worse than the inefficiency it replaces.
+
+**Status:** confirmed, deliberately deferred — good candidate for its own isolated change,
+not a pre-release batch.
+
+### `tsconfig.app.json` doesn't enable `strict` mode
+
+**What happens today:** only individual flags are set (`noUnusedLocals`,
+`noUnusedParameters`, `noFallthroughCasesInSwitch`) — no `strict: true`, so implicit `any`
+and missing null-checks aren't compile errors. A grep for actual `any`/`as any` usage across
+`web/src/` found zero — nobody's relied on the laxity so far, this is about the safety net,
+not an active problem.
+
+**Why not fixed now:** turning it on could surface an unknown number of new null-safety
+errors across 51 TS/TSX files, each needing individual judgment, not a mechanical fix.
+Real, deliberate risk-benefit call: doing this properly deserves its own isolated pass with
+room to actually look at each surfaced error, not a rushed pre-release batch.
+
+**Status:** confirmed, deliberately deferred.
+
+### A narrow race window in invite acceptance
+
+**What happens today:** `accept_invite` does a read-then-write (`if grant.user_id is None:
+...`) without a row lock. Two genuinely concurrent accepts of the same still-pending invite
+token could theoretically both pass the check before either commits.
+
+**Why not fixed now:** real but negligible at this app's actual concurrency (personal-scale
+traffic, near-zero chance of two people racing to accept the exact same invite in the same
+instant). Fixing DB locking for this would be over-engineering relative to the actual risk.
+
+**Status:** confirmed, deliberately left as a documented trade-off, not a bug to chase.
+
+## Security notes
+
+### A rotated OAuth client secret exists in git history
+
+`git log -p` on `docker-compose.yml` shows a real `OAUTH_CLIENT_SECRET` value hardcoded in
+an early commit, before Decision #66 moved secrets to a gitignored `.env`. Found during the
+pre-publication audit and flagged explicitly per the audit's own instruction to surface any
+secret that ever existed in a tracked file, even if since removed.
+
+**Current risk: none.** Per Decision #66, this exact secret was rotated (regenerated via
+`create_oauth_client.py`) — the value in history is dead and has never matched the live
+secret since. Deliberately **not** scrubbed from git history: that requires a destructive
+history rewrite (`git filter-repo` + force-push), and rewriting history for a credential
+that no longer works trades a real, if small, disruption for a symbolic cleanup. Documented
+here instead, consistent with this project's own "honest about gaps" approach.
+
 ## Resolved
 
 ### Stat cards weren't clickable, even the ones with a real destination
@@ -62,3 +122,33 @@ target and three don't, so uniform non-clickability was optimizing for the wrong
 **Resolved by:** Decision #95 — `StatCard` gained an optional `to` prop (renders as a
 `react-router-dom` `Link` only when passed), wired to `/boards` on just the two
 board-related cards.
+
+### Gateway forwarded raw upstream exception text to the client
+
+**What was wrong:** a failed upstream call's `except httpx.HTTPError as exc` handler put
+the raw exception string into the `502` response's `detail` field — potentially including
+internal connection details (hostnames, ports) visible to an external caller.
+
+**Resolved by:** the exception is now logged server-side (`logger.error(...)`); the client
+gets a generic `"Upstream service error"` message. 17 Gateway tests pass unchanged.
+
+### All 5 containers ran as root
+
+**What was wrong:** no `USER` directive in any of the 5 Dockerfiles.
+
+**Resolved by:** each Dockerfile now creates a non-root `appuser`, `chown -R`s `/app` after
+`COPY . .` (so Auth's `entrypoint.sh` can still write JWT key files at runtime on a fresh
+deploy, Decision #87), and switches to it before `EXPOSE`/`CMD`. Verified live: full stack
+rebuilt, all 6 containers healthy, `docker compose exec <svc> whoami` confirms `appuser` on
+all 5, and a real signup→login round-trip through Gateway still returns `200`.
+
+### Python dependencies were unpinned
+
+**What was wrong:** every `requirements.txt` (all 5 services) listed bare package names —
+no version pins, no lockfile. `pip-audit` found no currently-known vulnerabilities in what
+was installed, so this was a reproducibility gap, not an active one: a future clone could
+silently pull a different, possibly-breaking version.
+
+**Resolved by:** every `requirements.txt` now pins exact versions (direct + transitive),
+taken from each service's already-tested, already-passing dev environment — not upgraded,
+just locked to what was already proven working.

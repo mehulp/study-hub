@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from contextlib import asynccontextmanager
@@ -12,6 +13,8 @@ from fastapi.responses import Response
 from jwt.algorithms import RSAAlgorithm
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 AUTH_SERVICE_URL = os.environ["AUTH_SERVICE_URL"]
 ITEMS_SERVICE_URL = os.environ["ITEMS_SERVICE_URL"]
@@ -187,9 +190,13 @@ async def proxy(full_path: str, request: Request) -> Response:
             detail="Upstream service took too long to respond",
         )
     except httpx.HTTPError as exc:
+        # The exception itself can include internal details (hostnames,
+        # ports) not meant for an external caller — log it server-side,
+        # return a generic message to the client.
+        logger.error("Upstream request to %s failed: %s", target_url, exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Upstream service error: {exc}",
+            detail="Upstream service error",
         )
 
     response_headers = {
