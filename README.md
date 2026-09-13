@@ -8,12 +8,12 @@ curated board with a study partner under real role-based access control.
 
 ## Demo
 
-The full loop, recorded end to end against fresh accounts, nothing staged: adding
+A narrated walkthrough, recorded end to end against fresh accounts, nothing staged: adding
 resources, organizing them into a Learning Plan, sharing a board — then, as the invited
 recipient, opening the link, signing up, landing directly on the shared board, and saving
 an item into their own library.
 
-https://github.com/user-attachments/assets/5edb956a-f407-4b00-b817-120ab2fcdffd
+https://github.com/user-attachments/assets/ba81210c-5740-416a-807d-932463f43ad5
 
 Built as a personal project to rebuild hands-on system-design fluency — real service
 boundaries, authentication/authorization, RBAC, and a real production deployment — ahead of
