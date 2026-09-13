@@ -3,7 +3,7 @@
 *Part of the [learning pack](./). Previous: [05-authentication-authorization-rbac.md](05-authentication-authorization-rbac.md). Next: [07-key-design-decisions.md](07-key-design-decisions.md).*
 
 Full operational detail (every environment variable, every platform gotcha hit getting
-here) lives in `docs/deployment.md` — this is the compressed, interview-oriented version:
+here) lives in `docs/deployment.md` — this is the compressed, quick-reference version:
 what's deployed, where, and why, verified against the actual live system, not written
 speculatively.
 

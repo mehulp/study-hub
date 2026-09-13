@@ -1,6 +1,6 @@
 # Study Hub — One-Page Cheatsheet
 
-*Part of the [learning pack](./). Previous: [09-system-design-interview-questions.md](09-system-design-interview-questions.md). Read this one 5 minutes before an interview.*
+*Part of the [learning pack](./). Previous: [07-key-design-decisions.md](07-key-design-decisions.md). The fastest way to re-orient on the whole system.*
 
 **What it is:** curate study resources (title/URL/notes/tags), organize into Learning
 Plans with progress tracking, share a board with a study partner under real RBAC. Built to

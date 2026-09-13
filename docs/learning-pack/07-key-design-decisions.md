@@ -1,10 +1,10 @@
 # Study Hub — Key Design Decisions
 
-*Part of the [learning pack](./). Previous: [06-deployment-and-runtime.md](06-deployment-and-runtime.md). Next: [08-interview-project-walkthrough.md](08-interview-project-walkthrough.md).*
+*Part of the [learning pack](./). Previous: [06-deployment-and-runtime.md](06-deployment-and-runtime.md). Next: [08-one-page-cheatsheet.md](08-one-page-cheatsheet.md).*
 
 The 15 decisions most worth being able to defend cold. Full reasoning and verification
 detail for every one of these lives in `docs/study-hub-architecture.md`'s Decision Log —
-this is the skim-right-before-an-interview version. Decision numbers reference that log.
+this is the condensed, skim-first version. Decision numbers reference that log.
 
 ### 1. Real microservices, not a modular monolith
 

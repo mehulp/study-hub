@@ -173,7 +173,7 @@ unfixed (see [`07-key-design-decisions.md`](07-key-design-decisions.md) for the 
 fixing it wouldn't even solve the actual felt problem, since there's still no way for a
 viewer to *know* something changed).
 
-## ERD explanation in interview language
+## ERD explanation in plain language
 
 > "Most of the relationships are boring, real foreign keys within one service's schema —
 > a user owns items, items have tags, that's standard. The two interesting ones are both

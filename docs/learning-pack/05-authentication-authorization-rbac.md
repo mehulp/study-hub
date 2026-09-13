@@ -128,7 +128,7 @@ whoever holds the link and is logged in as *any* account gets access, the same t
 as a "anyone with the link" Google Docs share. The first person to actually use a given
 link is the one it binds to; a second use of the same (now-claimed) link fails.
 
-## 10 likely interview questions
+## 10 likely design questions
 
 **1. Why RS256 instead of a simpler shared-secret (HS256) JWT?**
 Asymmetric keys mean only Auth can *mint* a token; every other service can *verify* one

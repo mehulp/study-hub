@@ -85,7 +85,7 @@ receiver with zero login history lands directly on the right board with no manua
 step, and what it costs (in code, in trade-offs) to make service boundaries real rather than
 decorative.
 
-## The 60–90 second answer
+## The short version
 
 > "Study Hub is a resource-curation tool I built to relearn system design hands-on before
 > Senior EM interviews — you save study resources with tags, organize them into learning

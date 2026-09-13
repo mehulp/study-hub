@@ -20,3 +20,9 @@ docs/Interview_Prep_Checklist_Clickable_Hyperlinks_FINAL.xlsx
 # Raw Playwright demo recordings -- the actual video lives in the README via
 # GitHub's asset host (user-attachments), not committed to the repo itself.
 demo-videos/
+
+# Personal interview-prep material -- explicit interview-script framing that
+# doesn't belong in a public repo. Moved here from docs/learning-pack/ and
+# docs/sailpoint-prep-coverage-map.md; the public learning-pack keeps the
+# technical documentation, reworded away from "interview" framing.
+notes/
