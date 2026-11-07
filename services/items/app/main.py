@@ -79,6 +79,7 @@ def _plan_response(plan: LearningPlan) -> PlanResponse:
         owner_user_id=plan.owner_user_id,
         name=plan.name,
         description=plan.description,
+        interviewpal_pack_key=plan.interviewpal_pack_key,
         created_at=plan.created_at,
         items=[_plan_item_response(pi) for pi in plan.items],
     )
@@ -94,7 +95,12 @@ def create_plan(
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> PlanResponse:
-    plan = LearningPlan(owner_user_id=user_id, name=payload.name, description=payload.description)
+    plan = LearningPlan(
+        owner_user_id=user_id,
+        name=payload.name,
+        description=payload.description,
+        interviewpal_pack_key=payload.interviewpal_pack_key,
+    )
     db.add(plan)
     db.commit()
     db.refresh(plan)
@@ -139,6 +145,10 @@ def update_plan(
         plan.name = payload.name
     if "description" in fields:
         plan.description = payload.description
+    # Only when the field is present: omitting it keeps the saved pairing, an explicit null clears it. The value was
+    # already checked against the supported keys by the schema.
+    if "interviewpal_pack_key" in fields:
+        plan.interviewpal_pack_key = payload.interviewpal_pack_key
     db.commit()
     db.refresh(plan)
     return _plan_response(plan)

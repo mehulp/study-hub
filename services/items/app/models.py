@@ -74,6 +74,10 @@ class LearningPlan(Base):
     owner_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Optional pairing with an InterviewPal practice pack (migration 0004): the pack's stable KEY (for example
+    # "system-design-week-1"), never its display name. NULL = not paired. Which keys are allowed is decided by the API
+    # (schemas.InterviewPalPackKey), not by a DB constraint, so a new pack never needs a migration.
+    interviewpal_pack_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

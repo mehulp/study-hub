@@ -244,3 +244,88 @@ def test_remove_nonexistent_plan_item_returns_404(client, auth_headers):
         f"/plans/{plan['id']}/items/00000000-0000-0000-0000-000000000000", headers=auth_headers
     )
     assert response.status_code == 404
+
+
+# ---------- InterviewPal practice pack pairing (migration 0004) ----------
+
+PACK = "system-design-week-1"
+
+
+def test_plan_without_a_pairing_has_none(client, auth_headers):
+    plan = create_plan(client, auth_headers).json()
+    assert plan["interviewpal_pack_key"] is None
+    assert client.get(f"/plans/{plan['id']}", headers=auth_headers).json()["interviewpal_pack_key"] is None
+    assert client.get("/plans", headers=auth_headers).json()[0]["interviewpal_pack_key"] is None
+
+
+def test_create_plan_with_a_supported_pack_key(client, auth_headers):
+    response = create_plan(client, auth_headers, interviewpal_pack_key=PACK)
+    assert response.status_code == 201
+    assert response.json()["interviewpal_pack_key"] == PACK
+    # survives a reload (a fresh GET)
+    assert client.get(f"/plans/{response.json()['id']}", headers=auth_headers).json()["interviewpal_pack_key"] == PACK
+
+
+@pytest.mark.parametrize("bad", ["not-a-pack", "", "System Design — Week 1", "SYSTEM-DESIGN-WEEK-1", "system-design-week-1 ", 7, ["system-design-week-1"]])
+def test_create_plan_rejects_unsupported_pack_keys(client, auth_headers, bad):
+    response = create_plan(client, auth_headers, interviewpal_pack_key=bad)
+    assert response.status_code == 422
+    assert client.get("/plans", headers=auth_headers).json() == []  # nothing was created
+
+
+def test_update_can_set_a_supported_pack_key(client, auth_headers):
+    plan = create_plan(client, auth_headers).json()
+    response = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": PACK}, headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["interviewpal_pack_key"] == PACK
+    assert response.json()["name"] == "4-Week Prep"  # nothing else changed
+
+
+def test_update_that_omits_the_field_keeps_the_pairing(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_key=PACK).json()
+    for body in ({"name": "Renamed"}, {"description": "New text"}, {}):
+        response = client.patch(f"/plans/{plan['id']}", json=body, headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["interviewpal_pack_key"] == PACK, body
+
+
+def test_explicit_null_clears_the_pairing(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_key=PACK).json()
+    response = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": None}, headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["interviewpal_pack_key"] is None
+    assert client.get(f"/plans/{plan['id']}", headers=auth_headers).json()["interviewpal_pack_key"] is None
+    # clearing, then renaming, leaves it cleared
+    again = client.patch(f"/plans/{plan['id']}", json={"name": "Still unpaired"}, headers=auth_headers)
+    assert again.json()["interviewpal_pack_key"] is None
+
+
+def test_update_rejects_an_unsupported_key_and_changes_nothing(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_key=PACK).json()
+    response = client.patch(f"/plans/{plan['id']}", json={"name": "X", "interviewpal_pack_key": "nope"}, headers=auth_headers)
+    assert response.status_code == 422
+    saved = client.get(f"/plans/{plan['id']}", headers=auth_headers).json()
+    assert saved["interviewpal_pack_key"] == PACK and saved["name"] == "4-Week Prep"
+
+
+def test_the_same_pack_can_be_paired_with_several_plans(client, auth_headers):
+    first = create_plan(client, auth_headers, name="Week 1").json()
+    second = create_plan(client, auth_headers, name="Week 1 (copy)").json()
+    for plan in (first, second):
+        response = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": PACK}, headers=auth_headers)
+        assert response.json()["interviewpal_pack_key"] == PACK
+    keys = {p["id"]: p["interviewpal_pack_key"] for p in client.get("/plans", headers=auth_headers).json()}
+    assert keys == {first["id"]: PACK, second["id"]: PACK}
+
+
+def test_another_user_cannot_read_or_change_a_pairing(client, auth_headers, other_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_key=PACK).json()
+    assert client.get(f"/plans/{plan['id']}", headers=other_headers).status_code == 404
+    assert client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": None}, headers=other_headers).status_code == 404
+    assert client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": PACK}, headers=other_headers).status_code == 404
+    assert client.get(f"/plans/{plan['id']}", headers=auth_headers).json()["interviewpal_pack_key"] == PACK
+    assert client.get("/plans", headers=other_headers).json() == []
+
+
+def test_pairing_requires_a_token(client):
+    assert client.post("/plans", json={"name": "x", "interviewpal_pack_key": PACK}).status_code == 401

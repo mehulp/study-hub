@@ -75,9 +75,16 @@ PlanItemStatus = Literal["not_started", "in_progress", "completed", "skipped"]
 Priority = Literal["low", "medium", "high"]
 
 
+# The InterviewPal practice packs a plan may be paired with. Explicit on purpose: anything else is rejected on write (422).
+# The keys are InterviewPal's stable pack keys (src/packs.js there); see docs/interviewpal-integration.md.
+# To support another pack, add its key here and its label to web/src/lib/interviewpalPacks.ts.
+InterviewPalPackKey = Literal["system-design-week-1"]
+
+
 class PlanCreateRequest(BaseModel):
     name: str
     description: str | None = None
+    interviewpal_pack_key: InterviewPalPackKey | None = None
 
     @field_validator("name")
     @classmethod
@@ -94,6 +101,8 @@ class PlanUpdateRequest(BaseModel):
 
     name: str | None = None
     description: str | None = None
+    # Omitted = keep the saved pairing. Explicit null = remove it. A supported key = set it.
+    interviewpal_pack_key: InterviewPalPackKey | None = None
 
 
 class PlanItemAddRequest(BaseModel):
@@ -142,5 +151,7 @@ class PlanResponse(BaseModel):
     owner_user_id: uuid.UUID
     name: str
     description: str | None
+    # Whatever is saved (a plain string, so a key the client no longer knows can still be shown or cleared).
+    interviewpal_pack_key: str | None = None
     created_at: datetime
     items: list[PlanItemResponse]
