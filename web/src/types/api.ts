@@ -128,6 +128,8 @@ export interface PlanResponse {
   owner_user_id: string;
   name: string;
   description: string | null;
+  // Stable key of the InterviewPal practice pack this plan is paired with, or null (see lib/interviewpalPacks.ts)
+  interviewpal_pack_key: string | null;
   created_at: string;
   items: PlanItemResponse[];
 }

@@ -1,24 +1,96 @@
 /* ==========================================================================
    Global design tokens (Decision #74)
    ========================================================================== */
-:root {
-  --color-bg: #f7f8fc;
+/* Colour themes. Four palettes, the same tokens in each; Sage & Forest is the default (it is what :root
+   shows when no data-theme is set). The palette values and names are InterviewPal's. [data-theme-preview]
+   lets the Appearance cards show a theme without switching to it. The theme is chosen in the avatar menu
+   (Appearance), saved in localStorage, and applied by the inline script in index.html before the first paint.
+   The status colours (success, danger), the tag accent palette and the shadows are the same in every theme. */
+:root,
+:root[data-theme="sage"],
+[data-theme-preview="sage"] {
+  --color-bg: #f6f7f2;
   --color-surface: #ffffff;
-  --color-surface-subtle: #fafaff;
+  --color-surface-subtle: #ecede8;
 
-  --color-text: #17171f;
-  --color-text-secondary: #626579;
-  --color-text-muted: #8b8ea3;
+  --color-text: #24332c;
+  --color-text-secondary: #505c56;
+  --color-text-muted: #626c67;
 
-  --color-primary: #6750e8;
-  --color-primary-hover: #5943d5;
-  --color-primary-soft: #f0edff;
+  --color-primary: #35634d;
+  --color-primary-hover: #2d5341;
+  --color-primary-soft: #ebefed;
 
-  --color-border: #e7e8ef;
-  --color-border-strong: #d8dae5;
+  --color-border: #d4d8d2;
+  --color-border-strong: #808985;
+  --color-focus: #305945;
+}
 
-  --color-success: #24865a;
-  --color-success-soft: #eaf7f0;
+:root[data-theme="teal"],
+[data-theme-preview="teal"] {
+  --color-bg: #f5f7f7;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #ebeded;
+
+  --color-text: #243438;
+  --color-text-secondary: #505d60;
+  --color-text-muted: #606c6e;
+
+  --color-primary: #176b70;
+  --color-primary-hover: #135a5e;
+  --color-primary-soft: #e8f0f1;
+
+  --color-border: #d4d8d8;
+  --color-border-strong: #80898c;
+  --color-focus: #156065;
+}
+
+:root[data-theme="plum"],
+[data-theme-preview="plum"] {
+  --color-bg: #f7f5f8;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #edebef;
+
+  --color-text: #332d3b;
+  --color-text-secondary: #5c5762;
+  --color-text-muted: #6b6670;
+
+  --color-primary: #715185;
+  --color-primary-hover: #5f4470;
+  --color-primary-soft: #f1eef3;
+
+  --color-border: #d8d5da;
+  --color-border-strong: #89858d;
+  --color-focus: #664978;
+}
+
+:root[data-theme="blue"],
+[data-theme-preview="blue"] {
+  --color-bg: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #ebecf1;
+
+  --color-text: #1d2433;
+  --color-text-secondary: #4a505c;
+  --color-text-muted: #656a74;
+
+  --color-primary: #3b5bdb;
+  --color-primary-hover: #324cb8;
+  --color-primary-soft: #ebeffb;
+
+  --color-border: #d3d5db;
+  --color-border-strong: #7c8089;
+  --color-focus: #3552c5;
+}
+
+/* The same in every theme */
+:root {
+  --color-primary-fg: #ffffff; /* text on the primary colour */
+
+  /* Same palette as before, except success: the old green was 4.1:1 on its own tint, below the 4.5:1 target
+     for small text, so it is darkened to the value InterviewPal uses (5.7:1). */
+  --color-success: #1e6b3a;
+  --color-success-soft: #e7f4ea;
 
   --color-danger: #c54141;
   --color-danger-soft: #fff0f0;
@@ -26,7 +98,8 @@
   /* A small accent palette (Decision #83) for the stat-card icons and the
      per-tag color hashing -- same soft-bg/saturated-text pairing already
      established by --color-success/-soft and --color-danger/-soft above,
-     just more hues, since tag coloring needs more than 2-3 to feel varied. */
+     just more hues, since tag coloring needs more than 2-3 to feel varied.
+     Each text colour is at least 4.5:1 on its own tint. */
   --color-accent-amber: #b45309;
   --color-accent-amber-soft: #fef3c7;
   --color-accent-blue: #1d4ed8;
@@ -116,13 +189,13 @@ button {
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-fg);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -208,7 +281,7 @@ input:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -705,12 +778,12 @@ a:focus-visible {
 
 .tag-chip-active {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-fg);
   border-color: var(--color-primary);
 }
 
 .tag-chip-active:hover {
-  color: #fff;
+  color: var(--color-primary-fg);
 }
 
 .tag-chip-small {
@@ -1072,7 +1145,7 @@ a:focus-visible {
 
 .view-toggle-btn.active {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-primary-fg);
 }
 
 .resource-grid {
@@ -1821,4 +1894,128 @@ a:focus-visible {
   .board-page-actions .btn {
     flex: 1 1 auto;
   }
+}
+
+/* ==========================================================================
+   Appearance dialog: the colour theme picker (same swatch cards as InterviewPal).
+   Each card carries its own theme's colours through data-theme-preview, so it
+   shows that theme whichever one is on. A native radio sits inside each label,
+   so the keyboard and screen readers work without extra code.
+   ========================================================================== */
+.dialog-appearance {
+  width: 520px;
+}
+
+.theme-picker {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.theme-picker legend {
+  padding: 0;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.theme-card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  cursor: pointer;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.theme-card input {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.theme-card:hover {
+  border-color: var(--color-primary);
+}
+
+.theme-card:focus-within {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.theme-card:has(input:checked) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.theme-swatches {
+  display: flex;
+  gap: 6px;
+  margin-right: 28px;
+}
+
+.theme-swatches i {
+  display: block;
+  flex: 1;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+}
+
+.theme-swatches .sw-page { background: var(--color-bg); }
+.theme-swatches .sw-surface { background: var(--color-surface); }
+.theme-swatches .sw-accent { background: var(--color-primary); }
+.theme-swatches .sw-text { background: var(--color-text); }
+
+.theme-name {
+  font-weight: 600;
+}
+
+.theme-note {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* The words and the tick make the choice clear without relying on colour */
+.theme-selected {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.theme-card input:not(:checked) ~ .theme-selected {
+  visibility: hidden;
+}
+
+.theme-status {
+  min-height: 1.4em;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.dialog-appearance .dialog-actions {
+  margin-top: 16px;
+}
+
+/* Pilot: "Practise in InterviewPal" under the plan heading (only on the one paired plan) */
+.plan-practise {
+  margin: 12px 0 0;
+}
+
+.plan-practise .btn {
+  text-decoration: none;
 }

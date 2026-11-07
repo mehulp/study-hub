@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { BookIcon, ChevronDownIcon, PlusIcon } from "../lib/icons";
+import { AppearanceDialog } from "./AppearanceDialog";
 
 // Global header, shared by every authenticated page via AppLayout. "Add
 // Resource" always routes to Library with navigation state rather than
@@ -12,6 +13,8 @@ export function AppHeader() {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
 
   const firstName = currentUser?.first_name ?? null;
   const avatarLetter = (firstName ?? currentUser?.email ?? "?").charAt(0).toUpperCase();
@@ -35,9 +38,19 @@ export function AppHeader() {
           <span className="app-header-add-label">Add Resource</span>
         </button>
 
-        <div className="app-header-user">
+        <div
+          className="app-header-user"
+          onKeyDown={(event) => {
+            // Escape closes the menu and puts focus back on the avatar button
+            if (event.key === "Escape" && menuOpen) {
+              setMenuOpen(false);
+              userButtonRef.current?.focus();
+            }
+          }}
+        >
           <button
             className="app-header-user-button"
+            ref={userButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
             aria-haspopup="true"
             aria-expanded={menuOpen}
@@ -48,6 +61,15 @@ export function AppHeader() {
           </button>
           {menuOpen && (
             <div className="app-header-menu" role="menu">
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setAppearanceOpen(true);
+                }}
+              >
+                Appearance
+              </button>
               <button role="menuitem" onClick={() => logout()}>
                 Log out
               </button>
@@ -55,6 +77,15 @@ export function AppHeader() {
           )}
         </div>
       </div>
+
+      {appearanceOpen && (
+        <AppearanceDialog
+          onClose={() => {
+            setAppearanceOpen(false);
+            userButtonRef.current?.focus(); // back to where the person was
+          }}
+        />
+      )}
     </header>
   );
 }

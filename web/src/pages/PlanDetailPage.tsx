@@ -7,6 +7,7 @@ import { PlanItemsList } from "../components/PlanItemsList";
 import { AddItemsToPlanDialog } from "../components/AddItemsToPlanDialog";
 import { PlanFormDialog } from "../components/PlanFormDialog";
 import { PlusIcon, EditIcon } from "../lib/icons";
+import { practiceLinkFor } from "../lib/interviewpalPacks";
 
 export function PlanDetailPage() {
   const { planId } = useParams<{ planId: string }>();
@@ -86,6 +87,9 @@ export function PlanDetailPage() {
     }
   }
 
+  // A plan with a supported saved pairing (set in the plan form) gets the InterviewPal link
+  const practiceUrl = plan ? practiceLinkFor(plan) : null;
+
   const completedCount = plan?.items.filter((item) => item.status === "completed").length ?? 0;
 
   return (
@@ -106,6 +110,13 @@ export function PlanDetailPage() {
               {plan.items.length > 0 && ` · ${completedCount} completed`}
             </p>
             {plan.description && <p className="plan-description">{plan.description}</p>}
+            {practiceUrl && (
+              <p className="plan-practise">
+                <a className="btn btn-secondary" href={practiceUrl}>
+                  Practise in InterviewPal
+                </a>
+              </p>
+            )}
           </div>
 
           <div className="section-header">

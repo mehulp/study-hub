@@ -4,6 +4,7 @@ import type { PlanItemResponse, PlanItemStatus, PlanResponse, Priority } from ".
 export interface CreatePlanInput {
   name: string;
   description?: string | null;
+  interviewpal_pack_key?: string | null;
 }
 
 export async function createPlan(input: CreatePlanInput): Promise<PlanResponse> {
@@ -24,6 +25,8 @@ export async function getPlan(planId: string): Promise<PlanResponse> {
 export interface UpdatePlanInput {
   name?: string;
   description?: string | null;
+  // Omitted = keep the saved pairing; null = remove it; a supported key = set it.
+  interviewpal_pack_key?: string | null;
 }
 
 export async function updatePlan(planId: string, input: UpdatePlanInput): Promise<PlanResponse> {

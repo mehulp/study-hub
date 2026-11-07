@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createPlan, updatePlan } from "../api/plans";
 import type { PlanResponse } from "../types/api";
+import { PRACTICE_PACKS, isSupportedPack } from "../lib/interviewpalPacks";
 
 interface PlanFormDialogProps {
   plan?: PlanResponse; // present = edit mode, absent = create mode
@@ -15,6 +16,9 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const isEdit = plan !== undefined;
   const [name, setName] = useState(plan?.name ?? "");
   const [description, setDescription] = useState(plan?.description ?? "");
+  // "" = None. A saved key this version does not know is kept as it is unless the person changes it.
+  const [packKey, setPackKey] = useState(plan?.interviewpal_pack_key ?? "");
+  const unknownSavedKey = plan?.interviewpal_pack_key && !isSupportedPack(plan.interviewpal_pack_key) ? plan.interviewpal_pack_key : null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +28,8 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     setSaving(true);
     try {
       const saved = isEdit
-        ? await updatePlan(plan.id, { name, description: description || null })
-        : await createPlan({ name, description: description || null });
+        ? await updatePlan(plan.id, { name, description: description || null, interviewpal_pack_key: packKey || null })
+        : await createPlan({ name, description: description || null, interviewpal_pack_key: packKey || null });
       onSaved(saved);
       onClose();
     } catch (err) {
@@ -58,6 +62,19 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
               disabled={saving}
               rows={3}
             />
+          </label>
+          <label className="field">
+            InterviewPal practice pack
+            <span className="dialog-hint">Optional. A plan with a pack gets a Practise in InterviewPal button.</span>
+            <select value={packKey} onChange={(e) => setPackKey(e.target.value)} disabled={saving}>
+              <option value="">None</option>
+              {PRACTICE_PACKS.map((pack) => (
+                <option key={pack.key} value={pack.key}>
+                  {pack.label}
+                </option>
+              ))}
+              {unknownSavedKey && <option value={unknownSavedKey}>{`Unsupported pack (${unknownSavedKey}): keep`}</option>}
+            </select>
           </label>
           {error && <p className="error">{error}</p>}
           <div className="dialog-actions">

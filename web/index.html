@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mehul's Study Hub</title>
+    <!-- Applies the saved colour theme BEFORE the first paint (so /login and /signup are covered too, and there
+         is no flash of the wrong colours). A plain inline script on purpose: modules run too late for this.
+         It reads one localStorage key and only accepts the IDs below; anything else (nothing saved, an unknown
+         value, storage blocked) leaves the default, Sage & Forest, which index.css shows when no theme is set.
+         Keep this list equal to THEMES in src/lib/themes.ts. -->
+    <script>
+      (function () {
+        var IDS = ["sage", "teal", "plum", "blue"];
+        try {
+          var theme = localStorage.getItem("study_hub.theme");
+          if (IDS.indexOf(theme) !== -1) document.documentElement.setAttribute("data-theme", theme);
+        } catch (err) {
+          /* storage blocked or unreadable: keep the default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
