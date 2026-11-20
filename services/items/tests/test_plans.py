@@ -329,3 +329,119 @@ def test_another_user_cannot_read_or_change_a_pairing(client, auth_headers, othe
 
 def test_pairing_requires_a_token(client):
     assert client.post("/plans", json={"name": "x", "interviewpal_pack_key": PACK}).status_code == 401
+
+
+# ---------- Several packs per plan (migration 0005): the list form ----------
+
+HASHING = "system-design-consistent-hashing"
+CAP = "system-design-cap-consistency"
+
+
+def test_a_plan_with_no_pairing_has_an_empty_list(client, auth_headers):
+    plan = create_plan(client, auth_headers).json()
+    assert plan["interviewpal_pack_keys"] == []
+    assert plan["interviewpal_pack_key"] is None
+
+
+def test_create_with_several_packs_keeps_their_order(client, auth_headers):
+    response = create_plan(client, auth_headers, interviewpal_pack_keys=[CAP, HASHING, PACK])
+    assert response.status_code == 201
+    body = response.json()
+    assert body["interviewpal_pack_keys"] == [CAP, HASHING, PACK]
+    assert body["interviewpal_pack_key"] == CAP  # the deprecated alias is the first
+    assert client.get(f"/plans/{body['id']}", headers=auth_headers).json()["interviewpal_pack_keys"] == [CAP, HASHING, PACK]
+
+
+@pytest.mark.parametrize("bad", [["nope"], [HASHING, "nope"], [HASHING, HASHING], [""], "system-design-week-1", [7], [[HASHING]]])
+def test_unsupported_or_repeated_pack_lists_are_rejected(client, auth_headers, bad):
+    assert create_plan(client, auth_headers, interviewpal_pack_keys=bad).status_code == 422
+    assert client.get("/plans", headers=auth_headers).json() == []
+
+
+def test_update_with_a_list_sets_it_and_omitting_keeps_it(client, auth_headers):
+    plan = create_plan(client, auth_headers).json()
+    response = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": [HASHING, CAP]}, headers=auth_headers)
+    assert response.json()["interviewpal_pack_keys"] == [HASHING, CAP]
+    for body in ({"name": "Renamed"}, {"description": "x"}, {}):
+        kept = client.patch(f"/plans/{plan['id']}", json=body, headers=auth_headers)
+        assert kept.json()["interviewpal_pack_keys"] == [HASHING, CAP], body
+
+
+def test_an_explicit_empty_list_or_null_clears_the_pairing(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_keys=[HASHING, CAP]).json()
+    cleared = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": []}, headers=auth_headers).json()
+    assert cleared["interviewpal_pack_keys"] == [] and cleared["interviewpal_pack_key"] is None
+    again = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": [CAP]}, headers=auth_headers).json()
+    assert again["interviewpal_pack_keys"] == [CAP]
+    nulled = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": None}, headers=auth_headers).json()
+    assert nulled["interviewpal_pack_keys"] == []
+
+
+def test_a_bad_list_on_update_is_rejected_and_changes_nothing(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_keys=[HASHING]).json()
+    for bad in (["nope"], [HASHING, HASHING]):
+        response = client.patch(f"/plans/{plan['id']}", json={"name": "X", "interviewpal_pack_keys": bad}, headers=auth_headers)
+        assert response.status_code == 422
+    saved = client.get(f"/plans/{plan['id']}", headers=auth_headers).json()
+    assert saved["interviewpal_pack_keys"] == [HASHING] and saved["name"] == "4-Week Prep"
+
+
+def test_the_old_single_key_form_still_works_as_a_list_of_one(client, auth_headers):
+    plan = create_plan(client, auth_headers, interviewpal_pack_key=HASHING).json()
+    assert plan["interviewpal_pack_keys"] == [HASHING]
+    set_one = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": CAP}, headers=auth_headers).json()
+    assert set_one["interviewpal_pack_keys"] == [CAP]
+    cleared = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": None}, headers=auth_headers).json()
+    assert cleared["interviewpal_pack_keys"] == []
+    # the list wins when both are sent
+    both = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": [HASHING], "interviewpal_pack_key": CAP}, headers=auth_headers).json()
+    assert both["interviewpal_pack_keys"] == [HASHING]
+
+
+def test_the_same_pack_list_can_belong_to_several_plans_and_only_the_owner_sees_it(client, auth_headers, other_headers):
+    first = create_plan(client, auth_headers, name="Week 1", interviewpal_pack_keys=[HASHING, CAP]).json()
+    second = create_plan(client, auth_headers, name="Week 1 again", interviewpal_pack_keys=[HASHING]).json()
+    keys = {p["id"]: p["interviewpal_pack_keys"] for p in client.get("/plans", headers=auth_headers).json()}
+    assert keys == {first["id"]: [HASHING, CAP], second["id"]: [HASHING]}
+    assert client.get(f"/plans/{first['id']}", headers=other_headers).status_code == 404
+    assert client.patch(f"/plans/{first['id']}", json={"interviewpal_pack_keys": []}, headers=other_headers).status_code == 404
+    assert client.get(f"/plans/{first['id']}", headers=auth_headers).json()["interviewpal_pack_keys"] == [HASHING, CAP]
+
+
+def test_the_deprecated_single_key_column_stays_equal_to_the_first_pack(client, auth_headers, db_session):
+    """Migration 0005 keeps the old column so the previous release still works against this schema (code rollback is safe)."""
+    from sqlalchemy import text
+
+    def stored(plan_id):
+        row = db_session.execute(
+            text("SELECT interviewpal_pack_key, interviewpal_pack_keys FROM items.learning_plans WHERE id = :id"), {"id": plan_id}
+        ).one()
+        return row[0], row[1]
+
+    plan = create_plan(client, auth_headers, interviewpal_pack_keys=[CAP, HASHING]).json()
+    assert stored(plan["id"]) == (CAP, [CAP, HASHING])
+    client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": [HASHING]}, headers=auth_headers)
+    assert stored(plan["id"]) == (HASHING, [HASHING])
+    client.patch(f"/plans/{plan['id']}", json={"name": "renamed"}, headers=auth_headers)  # omitted: unchanged
+    assert stored(plan["id"]) == (HASHING, [HASHING])
+    client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_key": None}, headers=auth_headers)  # the deprecated form clears both
+    assert stored(plan["id"]) == (None, [])
+    client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": []}, headers=auth_headers)
+    assert stored(plan["id"]) == (None, [])
+
+
+def test_a_plan_last_written_by_the_release_before_0005_still_shows_its_pack(client, auth_headers, db_session):
+    """After a code rollback the older release writes only the single-key column; rolling forward again must not lose it."""
+    from sqlalchemy import text
+
+    plan = create_plan(client, auth_headers).json()
+    db_session.execute(
+        text("UPDATE items.learning_plans SET interviewpal_pack_key = :k, interviewpal_pack_keys = '[]'::jsonb WHERE id = :id"),
+        {"k": PACK, "id": plan["id"]},
+    )
+    db_session.expire_all()
+    seen = client.get(f"/plans/{plan['id']}", headers=auth_headers).json()
+    assert seen["interviewpal_pack_keys"] == [PACK] and seen["interviewpal_pack_key"] == PACK
+    # an explicit clear still clears (both columns), and a list write replaces it
+    cleared = client.patch(f"/plans/{plan['id']}", json={"interviewpal_pack_keys": []}, headers=auth_headers).json()
+    assert cleared["interviewpal_pack_keys"] == []

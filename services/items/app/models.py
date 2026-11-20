@@ -1,8 +1,8 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -74,9 +74,15 @@ class LearningPlan(Base):
     owner_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Optional pairing with an InterviewPal practice pack (migration 0004): the pack's stable KEY (for example
-    # "system-design-week-1"), never its display name. NULL = not paired. Which keys are allowed is decided by the API
-    # (schemas.InterviewPalPackKey), not by a DB constraint, so a new pack never needs a migration.
+    # Optional pairing with InterviewPal practice packs (migrations 0004 and 0005): an ordered list of the packs' stable KEYS
+    # (for example ["system-design-consistent-hashing"]), never display names. [] = not paired. Which keys are allowed is
+    # decided by the API (schemas.InterviewPalPackKey), not by a DB constraint, so a new pack never needs a migration.
+    interviewpal_pack_keys: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb"), default=list
+    )
+    # DEPRECATED (migration 0004's single key): always kept equal to the first pack of the list, so the release before 0005
+    # still works against this schema and a code rollback needs no database rollback. Never read by this code. Drop it in a
+    # later migration once no older release can run.
     interviewpal_pack_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

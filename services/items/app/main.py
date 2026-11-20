@@ -73,13 +73,30 @@ def _plan_item_response(plan_item: PlanItem) -> PlanItemResponse:
     )
 
 
+def _pack_keys(plan: LearningPlan) -> list[str]:
+    # The list; but if it is empty while the deprecated single-key column is set, a plan was last written by the release before
+    # migration 0005 (after a code rollback), so that one pack still counts.
+    keys = list(plan.interviewpal_pack_keys or [])
+    if not keys and plan.interviewpal_pack_key:
+        return [plan.interviewpal_pack_key]
+    return keys
+
+
+def _set_pack_keys(plan: LearningPlan, keys: list[str]) -> None:
+    # The list is the source of truth; the deprecated single-key column (migration 0004) is kept equal to its first pack so the
+    # release before migration 0005 still works against this schema.
+    plan.interviewpal_pack_keys = keys
+    plan.interviewpal_pack_key = keys[0] if keys else None
+
+
 def _plan_response(plan: LearningPlan) -> PlanResponse:
     return PlanResponse(
         id=plan.id,
         owner_user_id=plan.owner_user_id,
         name=plan.name,
         description=plan.description,
-        interviewpal_pack_key=plan.interviewpal_pack_key,
+        interviewpal_pack_keys=_pack_keys(plan),
+        interviewpal_pack_key=(_pack_keys(plan) or [None])[0],
         created_at=plan.created_at,
         items=[_plan_item_response(pi) for pi in plan.items],
     )
@@ -95,12 +112,8 @@ def create_plan(
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> PlanResponse:
-    plan = LearningPlan(
-        owner_user_id=user_id,
-        name=payload.name,
-        description=payload.description,
-        interviewpal_pack_key=payload.interviewpal_pack_key,
-    )
+    plan = LearningPlan(owner_user_id=user_id, name=payload.name, description=payload.description)
+    _set_pack_keys(plan, payload.pack_keys())
     db.add(plan)
     db.commit()
     db.refresh(plan)
@@ -145,10 +158,12 @@ def update_plan(
         plan.name = payload.name
     if "description" in fields:
         plan.description = payload.description
-    # Only when the field is present: omitting it keeps the saved pairing, an explicit null clears it. The value was
-    # already checked against the supported keys by the schema.
-    if "interviewpal_pack_key" in fields:
-        plan.interviewpal_pack_key = payload.interviewpal_pack_key
+    # Only when a pairing field is present: omitting both keeps the saved pairing; an explicit empty list or null clears it.
+    # The values were already checked against the supported keys by the schema. The list wins over the deprecated single key.
+    if "interviewpal_pack_keys" in fields:
+        _set_pack_keys(plan, list(payload.interviewpal_pack_keys or []))
+    elif "interviewpal_pack_key" in fields:
+        _set_pack_keys(plan, [payload.interviewpal_pack_key] if payload.interviewpal_pack_key else [])
     db.commit()
     db.refresh(plan)
     return _plan_response(plan)

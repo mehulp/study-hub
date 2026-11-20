@@ -78,13 +78,36 @@ Priority = Literal["low", "medium", "high"]
 # The InterviewPal practice packs a plan may be paired with. Explicit on purpose: anything else is rejected on write (422).
 # The keys are InterviewPal's stable pack keys (src/packs.js there); see docs/interviewpal-integration.md.
 # To support another pack, add its key here and its label to web/src/lib/interviewpalPacks.ts.
-InterviewPalPackKey = Literal["system-design-week-1"]
+InterviewPalPackKey = Literal[
+    "system-design-week-1",
+    "system-design-consistent-hashing",
+    "system-design-cap-consistency",
+]
+
+
+def _no_duplicate_packs(keys: list[str]) -> list[str]:
+    if len(set(keys)) != len(keys):
+        raise ValueError("a pack can only be listed once")
+    return keys
 
 
 class PlanCreateRequest(BaseModel):
     name: str
     description: str | None = None
+    # The packs this plan is paired with, in order (a week can have several daily sessions).
+    interviewpal_pack_keys: list[InterviewPalPackKey] = []
+    # Deprecated single-key form (the first pairing release): treated as a list of one. Ignored if the list is given.
     interviewpal_pack_key: InterviewPalPackKey | None = None
+
+    @field_validator("interviewpal_pack_keys")
+    @classmethod
+    def _unique_keys(cls, value: list[str]) -> list[str]:
+        return _no_duplicate_packs(value)
+
+    def pack_keys(self) -> list[str]:
+        if "interviewpal_pack_keys" in self.model_fields_set:
+            return list(self.interviewpal_pack_keys)
+        return [self.interviewpal_pack_key] if self.interviewpal_pack_key else []
 
     @field_validator("name")
     @classmethod
@@ -101,8 +124,15 @@ class PlanUpdateRequest(BaseModel):
 
     name: str | None = None
     description: str | None = None
-    # Omitted = keep the saved pairing. Explicit null = remove it. A supported key = set it.
+    # Omitted = keep the saved pairing. An explicit empty list (or null) = remove it. A list of supported keys = set it.
+    interviewpal_pack_keys: list[InterviewPalPackKey] | None = None
+    # Deprecated single-key form: null clears, a key sets a list of one. Ignored if the list is given.
     interviewpal_pack_key: InterviewPalPackKey | None = None
+
+    @field_validator("interviewpal_pack_keys")
+    @classmethod
+    def _unique_keys(cls, value: list[str] | None) -> list[str] | None:
+        return _no_duplicate_packs(value) if value is not None else value
 
 
 class PlanItemAddRequest(BaseModel):
@@ -151,7 +181,9 @@ class PlanResponse(BaseModel):
     owner_user_id: uuid.UUID
     name: str
     description: str | None
-    # Whatever is saved (a plain string, so a key the client no longer knows can still be shown or cleared).
+    # Whatever is saved (plain strings, so a key the client no longer knows can still be shown or cleared).
+    interviewpal_pack_keys: list[str] = []
+    # Deprecated: the first of the list, for the first pairing release's frontend. Removed once that is gone.
     interviewpal_pack_key: str | None = None
     created_at: datetime
     items: list[PlanItemResponse]
