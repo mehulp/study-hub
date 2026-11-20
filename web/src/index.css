@@ -2011,11 +2011,53 @@ a:focus-visible {
   margin-top: 16px;
 }
 
-/* Pilot: "Practise in InterviewPal" under the plan heading (only on the one paired plan) */
+/* "Practise in InterviewPal" under the plan heading: one button per paired pack, so there can be several sessions a day */
 .plan-practise {
   margin: 12px 0 0;
 }
 
+.plan-practise-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .plan-practise .btn {
   text-decoration: none;
+}
+
+.plan-practise-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* The pack checkboxes in the plan form */
+.pack-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.pack-field legend {
+  padding: 0;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-weight: 400;
+  color: var(--color-text);
+}
+
+.check-row input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--color-primary);
 }

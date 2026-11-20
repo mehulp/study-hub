@@ -7,7 +7,7 @@ import { PlanItemsList } from "../components/PlanItemsList";
 import { AddItemsToPlanDialog } from "../components/AddItemsToPlanDialog";
 import { PlanFormDialog } from "../components/PlanFormDialog";
 import { PlusIcon, EditIcon } from "../lib/icons";
-import { practiceLinkFor } from "../lib/interviewpalPacks";
+import { practiceLinksFor } from "../lib/interviewpalPacks";
 
 export function PlanDetailPage() {
   const { planId } = useParams<{ planId: string }>();
@@ -87,8 +87,8 @@ export function PlanDetailPage() {
     }
   }
 
-  // A plan with a supported saved pairing (set in the plan form) gets the InterviewPal link
-  const practiceUrl = plan ? practiceLinkFor(plan) : null;
+  // One InterviewPal button per supported pack saved on the plan (set in the plan form), in the saved order
+  const practiceLinks = plan ? practiceLinksFor(plan) : [];
 
   const completedCount = plan?.items.filter((item) => item.status === "completed").length ?? 0;
 
@@ -110,12 +110,21 @@ export function PlanDetailPage() {
               {plan.items.length > 0 && ` · ${completedCount} completed`}
             </p>
             {plan.description && <p className="plan-description">{plan.description}</p>}
-            {practiceUrl && (
-              <p className="plan-practise">
-                <a className="btn btn-secondary" href={practiceUrl}>
-                  Practise in InterviewPal
-                </a>
-              </p>
+            {practiceLinks.length > 0 && (
+              <div className="plan-practise">
+                <div className="plan-practise-buttons">
+                  {practiceLinks.map(({ pack, url }) => (
+                    <a key={pack.key} className="btn btn-secondary" href={url}>
+                      {practiceLinks.length === 1 ? "Practise in InterviewPal" : `Practise: ${pack.shortLabel}`}
+                    </a>
+                  ))}
+                </div>
+                {plan.items.length === 0 && (
+                  <p className="plan-practise-hint">
+                    This plan has no resources yet, but you can still practise the curated questions.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

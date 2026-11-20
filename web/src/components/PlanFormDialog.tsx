@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createPlan, updatePlan } from "../api/plans";
 import type { PlanResponse } from "../types/api";
-import { PRACTICE_PACKS, isSupportedPack } from "../lib/interviewpalPacks";
+import { PRACTICE_PACKS } from "../lib/interviewpalPacks";
 
 interface PlanFormDialogProps {
   plan?: PlanResponse; // present = edit mode, absent = create mode
@@ -16,9 +16,13 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const isEdit = plan !== undefined;
   const [name, setName] = useState(plan?.name ?? "");
   const [description, setDescription] = useState(plan?.description ?? "");
-  // "" = None. A saved key this version does not know is kept as it is unless the person changes it.
-  const [packKey, setPackKey] = useState(plan?.interviewpal_pack_key ?? "");
-  const unknownSavedKey = plan?.interviewpal_pack_key && !isSupportedPack(plan.interviewpal_pack_key) ? plan.interviewpal_pack_key : null;
+  // The packs this plan is paired with (none ticked = not paired). Only supported packs are shown, and they are saved in the
+  // order they are listed.
+  const [packKeys, setPackKeys] = useState<string[]>(plan?.interviewpal_pack_keys ?? []);
+  const chosenPacks = () => PRACTICE_PACKS.filter((pack) => packKeys.includes(pack.key)).map((pack) => pack.key);
+  function togglePack(key: string, on: boolean) {
+    setPackKeys((current) => (on ? [...current, key] : current.filter((k) => k !== key)));
+  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,8 +32,8 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     setSaving(true);
     try {
       const saved = isEdit
-        ? await updatePlan(plan.id, { name, description: description || null, interviewpal_pack_key: packKey || null })
-        : await createPlan({ name, description: description || null, interviewpal_pack_key: packKey || null });
+        ? await updatePlan(plan.id, { name, description: description || null, interviewpal_pack_keys: chosenPacks() })
+        : await createPlan({ name, description: description || null, interviewpal_pack_keys: chosenPacks() });
       onSaved(saved);
       onClose();
     } catch (err) {
@@ -63,19 +67,24 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
               rows={3}
             />
           </label>
-          <label className="field">
-            InterviewPal practice pack
-            <span className="dialog-hint">Optional. A plan with a pack gets a Practise in InterviewPal button.</span>
-            <select value={packKey} onChange={(e) => setPackKey(e.target.value)} disabled={saving}>
-              <option value="">None</option>
-              {PRACTICE_PACKS.map((pack) => (
-                <option key={pack.key} value={pack.key}>
-                  {pack.label}
-                </option>
-              ))}
-              {unknownSavedKey && <option value={unknownSavedKey}>{`Unsupported pack (${unknownSavedKey}): keep`}</option>}
-            </select>
-          </label>
+          <fieldset className="field pack-field">
+            <legend>InterviewPal practice packs</legend>
+            <span className="dialog-hint">
+              Optional. Tick the packs for this plan: each gets its own Practise in InterviewPal button, so you can do one or several
+              sessions a day.
+            </span>
+            {PRACTICE_PACKS.map((pack) => (
+              <label key={pack.key} className="check-row">
+                <input
+                  type="checkbox"
+                  checked={packKeys.includes(pack.key)}
+                  onChange={(e) => togglePack(pack.key, e.target.checked)}
+                  disabled={saving}
+                />
+                {pack.label}
+              </label>
+            ))}
+          </fieldset>
           {error && <p className="error">{error}</p>}
           <div className="dialog-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
